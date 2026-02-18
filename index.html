@@ -161,6 +161,42 @@ function MatPick(p){
   );
 }
 
+var lbl={color:"#94a3b8",fontSize:12,fontWeight:700,marginTop:12,marginBottom:4,textTransform:"uppercase",letterSpacing:0.6,display:"block"};
+var inp={padding:"13px 14px",background:"#141924",border:"1px solid #1e2836",borderRadius:12,color:"#e2e8f0",fontSize:16,outline:"none",width:"100%",boxSizing:"border-box"};
+var ta={padding:"13px 14px",background:"#141924",border:"1px solid #1e2836",borderRadius:12,color:"#e2e8f0",fontSize:15,outline:"none",resize:"vertical",fontFamily:"inherit",width:"100%",boxSizing:"border-box"};
+var cfgSec={background:"#141924",border:"1px solid #1e2836",borderRadius:14,padding:"14px 16px",marginBottom:14};
+var cfgH={color:"#e2e8f0",fontSize:15,fontWeight:700,margin:"0 0 8px"};
+
+// ═══ CONFIG COMPONENT ═══
+function ConfigComp(p){
+  var _l=u(p.config),l=_l[0],sL=_l[1];
+  function uL(k,v){sL(function(c){var n=Object.assign({},c);n[k]=v;return n})}
+  return e("div",{style:{padding:"16px 16px 20px"}},
+    e("div",{style:cfgSec},e("h3",{style:cfgH},"👤 Driver Name"),e("input",{style:inp,value:l.driverName,onChange:function(ev){uL("driverName",ev.target.value)},placeholder:"e.g. Mike"})),
+    e("div",{style:cfgSec},e("h3",{style:cfgH},"📊 Google Script URL"),e("p",{style:{color:"#64748b",fontSize:13,margin:"0 0 8px"}},"Paste deployed Apps Script URL"),e("input",{style:inp,value:l.googleScriptUrl,onChange:function(ev){uL("googleScriptUrl",ev.target.value)},placeholder:"https://script.google.com/macros/s/..."})),
+    e("div",{style:cfgSec},e("h3",{style:cfgH},"📧 Sales Rep Email"),e("input",{style:inp,type:"email",value:l.salesEmail,onChange:function(ev){uL("salesEmail",ev.target.value)},placeholder:"sales@thegreendumpster.com"})),
+    e("button",{style:{width:"100%",padding:15,background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",marginBottom:14,boxSizing:"border-box"},onClick:function(){p.saveCfg(l)}},p.configSaved?"✅ Saved!":"💾 Save Settings"),
+    e("div",{style:Object.assign({},cfgSec,{borderColor:"#64748b30"})},e("h3",{style:cfgH},"🔒 PIN: 9909"),e("p",{style:{color:"#64748b",fontSize:13,margin:0}},"Share with authorized drivers only"))
+  );
+}
+
+// ═══ EXTRAS COMPONENT ═══
+function ExtrasComp(p){
+  var _has=u(Object.values(p.jobData.extras).some(function(v){return v>0})),has=_has[0],setHas=_has[1];
+  return e("div",null,
+    e("div",{style:{display:"flex",gap:8,marginBottom:14}},
+      e("button",{style:{flex:1,padding:14,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",background:!has?"#22c55e":"#1e2836",color:!has?"#fff":"#94a3b8"},onClick:function(){setHas(false);p.sJD({extras:{},extrasCondition:{},extraNotes:""})}},"👍 No Extras"),
+      e("button",{style:{flex:1,padding:14,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",background:has?"#f59e0b":"#1e2836",color:has?"#fff":"#94a3b8"},onClick:function(){setHas(true)}},"⚠️ Yes, Extras")
+    ),
+    has?e("div",null,
+      e("div",{style:{padding:"10px 14px",background:"#f59e0b12",border:"1px solid #f59e0b30",borderRadius:10,color:"#fbbf24",fontSize:13,fontWeight:600,marginBottom:14,textAlign:"center"}},"⚡ Sales rep will be emailed"),
+      e(MatPick,{items:p.jobData.extras,conds:p.jobData.extrasCondition,onChange:function(it,co){p.sJD({extras:it,extrasCondition:co})},showCond:true,defaultCond:"used"}),
+      e("label",{style:Object.assign({},lbl,{marginTop:14})},"Notes"),
+      e("textarea",{style:ta,value:p.jobData.extraNotes,rows:3,onChange:function(ev){p.sJD({extraNotes:ev.target.value})},placeholder:"e.g. 20 extra panels"})
+    ):e("div",{style:{textAlign:"center",padding:"36px 20px"}},e("span",{style:{fontSize:40}},"👍"),e("p",{style:{color:"#64748b",margin:"8px 0 0"}},"No extras — all good!"))
+  );
+}
+
 // ═══ MAIN APP ═══
 function App(){
   var _un=u(false),unlocked=_un[0],setUnlocked=_un[1];
@@ -271,21 +307,7 @@ function App(){
   }
 
   // ═══ EXTRAS STEP ═══
-  function renderExtras(){
-    var _has=u(Object.values(jobData.extras).some(function(v){return v>0})),has=_has[0],setHas=_has[1];
-    return e("div",null,
-      e("div",{style:{display:"flex",gap:8,marginBottom:14}},
-        e("button",{style:{flex:1,padding:14,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",background:!has?"#22c55e":"#1e2836",color:!has?"#fff":"#94a3b8"},onClick:function(){setHas(false);sJD({extras:{},extrasCondition:{},extraNotes:""})}},"👍 No Extras"),
-        e("button",{style:{flex:1,padding:14,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",background:has?"#f59e0b":"#1e2836",color:has?"#fff":"#94a3b8"},onClick:function(){setHas(true)}},"⚠️ Yes, Extras")
-      ),
-      has?e("div",null,
-        e("div",{style:{padding:"10px 14px",background:"#f59e0b12",border:"1px solid #f59e0b30",borderRadius:10,color:"#fbbf24",fontSize:13,fontWeight:600,marginBottom:14,textAlign:"center"}},"⚡ Sales rep will be emailed"),
-        e(MatPick,{items:jobData.extras,conds:jobData.extrasCondition,onChange:function(it,co){sJD({extras:it,extrasCondition:co})},showCond:true,defaultCond:"used"}),
-        e("label",{style:Object.assign({},lbl,{marginTop:14})},"Notes"),
-        e("textarea",{style:ta,value:jobData.extraNotes,rows:3,onChange:function(ev){sJD({extraNotes:ev.target.value})},placeholder:"e.g. 20 extra panels"})
-      ):e("div",{style:{textAlign:"center",padding:"36px 20px"}},e("span",{style:{fontSize:40}},"👍"),e("p",{style:{color:"#64748b",margin:"8px 0 0"}},"No extras — all good!"))
-    );
-  }
+  // Extras handled by ExtrasComp component above
 
   // ═══ REVIEW STEP ═══
   function renderReview(){
@@ -339,7 +361,7 @@ function App(){
     if(step===3&&jobData.type==="swap")return e("div",null,e("div",{style:{padding:"12px 16px",border:"1px solid #22c55e30",borderRadius:12,fontSize:14,display:"flex",alignItems:"center",gap:10,marginBottom:14,background:"#22c55e10"}},e("span",{style:{fontSize:20}},"📥"),e("span",{style:{color:"#86efac"}},e("span",null,"What are you "),e("b",null,"DELIVERING"),e("span",null," as replacement?"))),e(MatPick,{items:jobData.swapIn,conds:jobData.swapInCondition,onChange:function(it,co){sJD({swapIn:it,swapInCondition:co})},showCond:true,defaultCond:"used"}));
     if(step===2&&jobData.type==="sale")return e("div",null,e("div",{style:{padding:"12px 16px",border:"1px solid #f59e0b30",borderRadius:12,fontSize:14,display:"flex",alignItems:"center",gap:10,marginBottom:14,background:"#f59e0b10"}},e("span",{style:{fontSize:20}},"💰"),e("span",{style:{color:"#fcd34d"}},e("span",null,"All sales use "),e("b",null,"NEW"),e("span",null," materials only"))),e(MatPick,{items:jobData.items,conds:jobData.condition,onChange:function(it,co){sJD({items:it,condition:co})},showCond:false,forceCond:"new"}));
     if(step===3&&jobData.type==="sale")return renderPayment();
-    if((jobData.type==="swap"&&step===4)||(!["swap","sale"].includes(jobData.type)&&step===3))return renderExtras();
+    if((jobData.type==="swap"&&step===4)||(!["swap","sale"].includes(jobData.type)&&step===3))return e(ExtrasComp,{jobData:jobData,sJD:sJD});
     if(step===tot-1&&step>1)return renderReview();
     return null;
   }
@@ -393,17 +415,8 @@ function App(){
   }
 
   // ═══ CONFIG ═══
-  function renderConfig(){
-    var _l=u(config),l=_l[0],sL=_l[1];
-    function uL(k,v){sL(function(c){var n=Object.assign({},c);n[k]=v;return n})}
-    return e("div",{style:{padding:"16px 16px 20px"}},
-      e("div",{style:cfgSec},e("h3",{style:cfgH},"👤 Driver Name"),e("input",{style:inp,value:l.driverName,onChange:function(ev){uL("driverName",ev.target.value)},placeholder:"e.g. Mike"})),
-      e("div",{style:cfgSec},e("h3",{style:cfgH},"📊 Google Script URL"),e("p",{style:{color:"#64748b",fontSize:13,margin:"0 0 8px"}},"Paste deployed Apps Script URL"),e("input",{style:inp,value:l.googleScriptUrl,onChange:function(ev){uL("googleScriptUrl",ev.target.value)},placeholder:"https://script.google.com/macros/s/..."})),
-      e("div",{style:cfgSec},e("h3",{style:cfgH},"📧 Sales Rep Email"),e("input",{style:inp,type:"email",value:l.salesEmail,onChange:function(ev){uL("salesEmail",ev.target.value)},placeholder:"sales@thegreendumpster.com"})),
-      e("button",{style:{width:"100%",padding:15,background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",marginBottom:14,boxSizing:"border-box"},onClick:function(){saveCfg(l)}},configSaved?"✅ Saved!":"💾 Save Settings"),
-      e("div",{style:Object.assign({},cfgSec,{borderColor:"#64748b30"})},e("h3",{style:cfgH},"🔒 PIN: 9909"),e("p",{style:{color:"#64748b",fontSize:13,margin:0}},"Share with authorized drivers only"))
-    );
-  }
+  // Config uses its own component for local state
+  function renderConfig(){return e(ConfigComp,{config:config,saveCfg:saveCfg,configSaved:configSaved})}
 
   // ═══ HISTORY ═══
   function renderHistory(){
@@ -456,12 +469,6 @@ function App(){
     )
   );
 }
-
-var lbl={color:"#94a3b8",fontSize:12,fontWeight:700,marginTop:12,marginBottom:4,textTransform:"uppercase",letterSpacing:0.6,display:"block"};
-var inp={padding:"13px 14px",background:"#141924",border:"1px solid #1e2836",borderRadius:12,color:"#e2e8f0",fontSize:16,outline:"none",width:"100%",boxSizing:"border-box"};
-var ta={padding:"13px 14px",background:"#141924",border:"1px solid #1e2836",borderRadius:12,color:"#e2e8f0",fontSize:15,outline:"none",resize:"vertical",fontFamily:"inherit",width:"100%",boxSizing:"border-box"};
-var cfgSec={background:"#141924",border:"1px solid #1e2836",borderRadius:14,padding:"14px 16px",marginBottom:14};
-var cfgH={color:"#e2e8f0",fontSize:15,fontWeight:700,margin:"0 0 8px"};
 
 ReactDOM.render(e(App),document.getElementById("root"));
 </script>
