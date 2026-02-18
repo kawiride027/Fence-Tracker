@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0c1017">
+<title>TGD Fence Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body,#root{min-height:100vh;min-height:100dvh;background:#0c1017}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-12px)}75%{transform:translateX(12px)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const e=React.createElement,{useState:u,useEffect:ue}=React;
+
+const APP_PIN="9909";
+
+const FENCE_ITEMS=[
+{id:"6x10_panel",name:"6×10 Fence Panel",unit:"panels",category:"Panels"},
+{id:"8x10_panel",name:"8×10 Fence Panel",unit:"panels",category:"Panels"},
+{id:"6x12_panel",name:"6×12 Fence Panel",unit:"panels",category:"Panels"},
+{id:"8x12_panel",name:"8×12 Fence Panel",unit:"panels",category:"Panels"},
+{id:"6x10_ped_gate_panel",name:"6×10 Panel w/ Ped Gate",unit:"panels",category:"Panels"},
+{id:"8x10_ped_gate_panel",name:"8×10 Panel w/ Ped Gate",unit:"panels",category:"Panels"},
+{id:"fence_posts",name:"Fence Posts",unit:"posts",category:"Hardware"},
+{id:"fence_bases",name:"Fence Bases / Stands",unit:"bases",category:"Hardware"},
+{id:"fence_clamps",name:"Fence Clamps",unit:"clamps",category:"Hardware"},
+{id:"fence_wheels",name:"Fence Wheels",unit:"wheels",category:"Hardware"},
+{id:"green_6ft_windscreen",name:"Green 6ft Windscreen",unit:"ft",category:"Windscreen"},
+{id:"green_8ft_windscreen",name:"Green 8ft Windscreen",unit:"ft",category:"Windscreen"},
+{id:"black_6ft_windscreen",name:"Black 6ft Windscreen",unit:"ft",category:"Windscreen"},
+{id:"black_8ft_windscreen",name:"Black 8ft Windscreen",unit:"ft",category:"Windscreen"},
+{id:"pedestrian_gates",name:"Pedestrian Gates",unit:"gates",category:"Gates"},
+{id:"barricades",name:"Barricades",unit:"pcs",category:"Other"},
+{id:"sandbags",name:"Sandbags",unit:"bags",category:"Other"}
+];
+const CATS=["Panels","Hardware","Windscreen","Gates","Other"];
+const JT=[
+{id:"delivery",label:"🚚 Delivery / Install",color:"#22c55e",desc:"Dropping off materials to job site"},
+{id:"pickup",label:"📦 Pickup / Removal",color:"#3b82f6",desc:"Picking up materials from job site"},
+{id:"swap",label:"🔄 Swap / Exchange",color:"#a855f7",desc:"Swapping materials (e.g. 6ft → 8ft)"},
+{id:"sale",label:"💰 Material Sale",color:"#f59e0b",desc:"Selling new fencing materials"},
+{id:"audit",label:"📋 Inventory Audit",color:"#64748b",desc:"Counting on-site inventory"}
+];
+const PT=[
+{id:"cc",label:"💳 Credit Card",icon:"💳"},
+{id:"check",label:"📝 Check",icon:"📝"},
+{id:"cash",label:"💵 Cash",icon:"💵"},
+{id:"other",label:"📎 Other",icon:"📎"}
+];
+const DAYNAMES=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MONAMES=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function fmtISO(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function fmtDisp(s){if(!s)return"";var d=new Date(s+"T00:00:00");return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}
+function ls(k,v){if(v===undefined){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}else{localStorage.setItem(k,JSON.stringify(v))}}
+
+function blankJob(dn){return{type:"",customer:"",jobSite:"",poNumber:"",jobDate:fmtISO(new Date()),items:{},condition:{},swapOut:{},swapOutCondition:{},swapIn:{},swapInCondition:{},extras:{},extrasCondition:{},extraNotes:"",driverName:dn||"",notes:"",paymentReceived:null,paymentType:"",paymentNotes:""}}
+
+// ═══ PIN SCREEN ═══
+function PinScreen(p){
+  var _u=u,pin=_u(""),er=_u(false),sh=_u(false);
+  var pinV=pin[0],setPin=pin[1],erV=er[0],setEr=er[1],shV=sh[0],setSh=sh[1];
+  function hk(n){if(pinV.length>=4)return;var nx=pinV+n;setPin(nx);setEr(false);if(nx.length===4){if(nx===APP_PIN){setTimeout(function(){p.onUnlock()},200)}else{setEr(true);setSh(true);setTimeout(function(){setPin("");setSh(false)},600)}}}
+  function hd(){setPin(pinV.slice(0,-1));setEr(false)}
+  var keys=[1,2,3,4,5,6,7,8,9,null,0,"del"];
+  return e("div",{style:{minHeight:"100vh",minHeight:"100dvh",background:"#0c1017",display:"flex",alignItems:"center",justifyContent:"center"}},
+    e("div",{style:{textAlign:"center",padding:"20px",width:"100%",maxWidth:340}},
+      e("div",{style:{fontSize:48,marginBottom:8}},"🔒"),
+      e("h2",{style:{color:"#22c55e",fontSize:20,fontWeight:800,margin:"0 0 4px"}},"The Green Dumpster"),
+      e("p",{style:{color:"#64748b",fontSize:14,margin:"0 0 28px"}},"Enter PIN to access"),
+      e("div",{style:{display:"flex",justifyContent:"center",gap:16,marginBottom:8,animation:shV?"shake 0.4s ease":"none"}},
+        [0,1,2,3].map(function(i){return e("div",{key:i,style:{width:16,height:16,borderRadius:8,border:"2px solid",transition:"all 0.15s",background:i<pinV.length?(erV?"#ef4444":"#22c55e"):"transparent",borderColor:erV?"#ef4444":i<pinV.length?"#22c55e":"#3a4255"}})})
+      ),
+      erV&&e("p",{style:{color:"#ef4444",fontSize:13,fontWeight:600,marginTop:8,marginBottom:0}},"Incorrect PIN"),
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:12,marginTop:28,maxWidth:280,margin:"28px auto 0"}},
+        keys.map(function(k,i){return e("button",{key:i,onClick:function(){k==="del"?hd():k!==null?hk(String(k)):null},style:{width:"100%",aspectRatio:"1.4",borderRadius:14,border:k===null?"none":"1px solid #1e2836",background:k===null?"transparent":"#141924",color:k==="del"?"#94a3b8":"#e2e8f0",fontSize:k==="del"?22:26,fontWeight:600,cursor:k===null?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},k==="del"?"⌫":k!==null?k:"")})
+      )
+    )
+  );
+}
+
+// ═══ CALENDAR ═══
+function Cal(p){
+  var today=new Date();today.setHours(0,0,0,0);
+  var selDate=p.selected?new Date(p.selected+"T00:00:00"):null;
+  var _vY=u(selDate?selDate.getFullYear():today.getFullYear()),vY=_vY[0],sVY=_vY[1];
+  var _vM=u(selDate?selDate.getMonth():today.getMonth()),vM=_vM[0],sVM=_vM[1];
+  var fd=new Date(vY,vM,1).getDay(),dim=new Date(vY,vM+1,0).getDate(),pdim=new Date(vY,vM,0).getDate();
+  function prev(){if(vM===0){sVM(11);sVY(vY-1)}else sVM(vM-1)}
+  function next(){if(vM===11){sVM(0);sVY(vY+1)}else sVM(vM+1)}
+  function goTod(){sVY(today.getFullYear());sVM(today.getMonth());p.onSelect(fmtISO(today))}
+  var cells=[];
+  for(var i=fd-1;i>=0;i--)cells.push({day:pdim-i,t:"p"});
+  for(var d=1;d<=dim;d++)cells.push({day:d,t:"c"});
+  var rem=42-cells.length;for(var d2=1;d2<=rem;d2++)cells.push({day:d2,t:"n"});
+  function isT(d){return d===today.getDate()&&vM===today.getMonth()&&vY===today.getFullYear()}
+  function isS(d){return selDate&&d===selDate.getDate()&&vM===selDate.getMonth()&&vY===selDate.getFullYear()}
+  function pick(d){p.onSelect(vY+"-"+String(vM+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"))}
+
+  return e("div",{style:{background:"#141924",border:"1px solid #1e2836",borderRadius:14,padding:14,marginTop:4}},
+    e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
+      e("button",{onClick:prev,style:{background:"none",border:"1px solid #1e2836",borderRadius:8,color:"#94a3b8",fontSize:20,fontWeight:700,width:36,height:36,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"‹"),
+      e("span",{style:{color:"#e2e8f0",fontSize:15,fontWeight:700}},MONAMES[vM]+" "+vY),
+      e("button",{onClick:next,style:{background:"none",border:"1px solid #1e2836",borderRadius:8,color:"#94a3b8",fontSize:20,fontWeight:700,width:36,height:36,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"›")
+    ),
+    e("button",{onClick:goTod,style:{display:"block",margin:"0 auto 10px",padding:"5px 16px",background:"#22c55e15",border:"1px solid #22c55e30",borderRadius:8,color:"#4ade80",fontSize:13,fontWeight:700,cursor:"pointer"}},"Today"),
+    e("div",{style:{display:"grid",gridTemplateColumns:"repeat(7, 1fr)",gap:2}},
+      DAYNAMES.map(function(d){return e("div",{key:d,style:{textAlign:"center",color:"#64748b",fontSize:12,fontWeight:700,padding:"6px 0"}},d)}),
+      cells.map(function(c,i){var cur=c.t==="c",td=cur&&isT(c.day),sl=cur&&isS(c.day);
+        return e("button",{key:i,onClick:function(){cur&&pick(c.day)},style:{textAlign:"center",padding:"9px 0",fontSize:14,border:td&&!sl?"1px solid #22c55e50":"1px solid transparent",background:sl?"#22c55e":"transparent",color:!cur?"#374151":sl?"#fff":td?"#22c55e":"#e2e8f0",fontWeight:td||sl?800:500,cursor:cur?"pointer":"default",borderRadius:10}},c.day)})
+    ),
+    p.selected&&e("div",{style:{marginTop:10,padding:"8px 12px",background:"#22c55e12",border:"1px solid #22c55e30",borderRadius:8,color:"#4ade80",fontSize:13,fontWeight:600,textAlign:"center"}},"📅 "+fmtDisp(p.selected))
+  );
+}
+
+// ═══ MATERIAL PICKER ═══
+function MatPick(p){
+  var _cat=u(CATS[0]),cat=_cat[0],sCat=_cat[1];
+  function upd(id,delta){var ni=Object.assign({},p.items);ni[id]=Math.max(0,(ni[id]||0)+delta);var nc=Object.assign({},p.conds);if(!nc[id])nc[id]=p.forceCond||p.defaultCond||"used";p.onChange(ni,nc)}
+  function setV(id,v){var ni=Object.assign({},p.items);ni[id]=Math.max(0,parseInt(v)||0);var nc=Object.assign({},p.conds);if(!nc[id])nc[id]=p.forceCond||p.defaultCond||"used";p.onChange(ni,nc)}
+  function togC(id){if(p.forceCond)return;var nc=Object.assign({},p.conds);nc[id]=nc[id]==="new"?"used":"new";p.onChange(p.items,nc)}
+  function cntA(c){return FENCE_ITEMS.filter(function(i){return i.category===c&&p.items[i.id]>0}).length}
+
+  return e("div",null,
+    e("div",{style:{display:"flex",gap:6,overflowX:"auto",paddingBottom:10,WebkitOverflowScrolling:"touch",marginBottom:4}},
+      CATS.map(function(c){var n=cntA(c);return e("button",{key:c,onClick:function(){sCat(c)},style:{padding:"8px 14px",borderRadius:10,border:"1px solid",background:cat===c?"#22c55e15":"#141924",borderColor:cat===c?"#22c55e35":"#1e2836",color:cat===c?"#4ade80":"#64748b",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}},c,n>0&&e("span",{style:{background:"#22c55e",color:"#fff",fontSize:11,fontWeight:800,borderRadius:8,padding:"1px 6px",minWidth:16,textAlign:"center"}},n))})
+    ),
+    e("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+      FENCE_ITEMS.filter(function(i){return i.category===cat}).map(function(item){
+        var qty=p.items[item.id]||0,cond=p.forceCond||p.conds[item.id]||p.defaultCond||"used",isN=cond==="new";
+        return e("div",{key:item.id,style:{padding:"12px 14px",border:"1px solid",borderRadius:12,transition:"all 0.15s",background:qty>0?(isN?"#0a1f10":"#0d1520"):"#141924",borderColor:qty>0?(isN?"#22c55e28":"#3b82f628"):"#1e2836"}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+            e("div",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600,flex:1}},item.name),
+            qty>0&&p.showCond&&!p.forceCond&&e("button",{onClick:function(){togC(item.id)},style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,border:"1px solid",cursor:"pointer",letterSpacing:0.5,background:isN?"#22c55e18":"#64748b18",color:isN?"#4ade80":"#94a3b8",borderColor:isN?"#22c55e40":"#64748b40"}},isN?"★ NEW":"USED"),
+            qty>0&&p.forceCond==="new"&&e("span",{style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,background:"#22c55e18",color:"#4ade80",border:"1px solid #22c55e40",letterSpacing:0.5}},"★ NEW")
+          ),
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            e("span",{style:{color:"#64748b",fontSize:12}},item.unit),
+            e("div",{style:{display:"flex",alignItems:"center",gap:4}},
+              e("button",{style:{width:40,height:40,borderRadius:10,border:"1px solid #1e2836",background:"#1a2130",color:"#94a3b8",fontSize:20,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"},onClick:function(){upd(item.id,-1)}},"−"),
+              e("input",{style:{width:56,height:40,borderRadius:10,border:"1px solid #1e2836",background:"#0c1017",color:"#e2e8f0",fontSize:17,fontWeight:700,textAlign:"center",outline:"none",MozAppearance:"textfield"},type:"number",inputMode:"numeric",value:qty||"",placeholder:"0",onChange:function(ev){setV(item.id,ev.target.value)}}),
+              e("button",{style:{width:40,height:40,borderRadius:10,border:"1px solid #22c55e30",background:"#22c55e15",color:"#22c55e",fontSize:20,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"},onClick:function(){upd(item.id,1)}},"+")
+            )
+          )
+        );
+      })
+    )
+  );
+}
+
+// ═══ MAIN APP ═══
+function App(){
+  var _un=u(false),unlocked=_un[0],setUnlocked=_un[1];
+  var _sc=u("home"),screen=_sc[0],setScreen=_sc[1];
+  var _st=u(0),step=_st[0],setStep=_st[1];
+  var _jd=u(blankJob("")),jobData=_jd[0],setJobData=_jd[1];
+  var _cfg=u({googleScriptUrl:"",salesEmail:"",driverName:""}),config=_cfg[0],setConfig=_cfg[1];
+  var _sub=u(false),submitting=_sub[0],setSubmitting=_sub[1];
+  var _hist=u([]),history=_hist[0],setHistory=_hist[1];
+  var _saved=u(false),configSaved=_saved[0],setConfigSaved=_saved[1];
+
+  ue(function(){
+    var c=ls("tgd_fence_cfg");if(c)setConfig(c);
+    var h=ls("tgd_fence_hist");if(h)setHistory(h);
+  },[]);
+
+  function saveCfg(c){setConfig(c);ls("tgd_fence_cfg",c);setConfigSaved(true);setTimeout(function(){setConfigSaved(false)},2000)}
+  function resetJob(){setJobData(blankJob(config.driverName));setStep(0);setScreen("home")}
+  function sJD(fn){setJobData(function(d){return Object.assign({},d,typeof fn==="function"?fn(d):fn)})}
+
+  var steps;
+  if(jobData.type==="swap")steps=["Job Type","Customer Info","Picking Up (Returning)","Dropping Off (Replacement)","Extra Materials?","Review & Submit"];
+  else if(jobData.type==="sale")steps=["Job Type","Customer Info","Materials Sold","Payment","Review & Submit"];
+  else steps=["Job Type","Customer Info","Materials","Extra Materials?","Review & Submit"];
+  var tot=steps.length;
+
+  function canNext(){
+    if(step===0)return!!jobData.type;
+    if(step===1)return!!jobData.customer&&!!jobData.jobDate;
+    if(step===2){if(jobData.type==="swap")return Object.values(jobData.swapOut).some(function(v){return v>0});return Object.values(jobData.items).some(function(v){return v>0})}
+    if(step===3&&jobData.type==="swap")return Object.values(jobData.swapIn).some(function(v){return v>0});
+    if(step===3&&jobData.type==="sale"){if(jobData.paymentReceived===null)return false;if(jobData.paymentReceived&&!jobData.paymentType)return false;return true}
+    return true;
+  }
+
+  function submitJob(){
+    setSubmitting(true);
+    var ts=new Date().toLocaleString();
+    var entry=Object.assign({},jobData,{timestamp:ts,id:Date.now()});
+    function bR(m,c,fb){return FENCE_ITEMS.filter(function(i){return m[i.id]>0}).map(function(i){return{item:i.name,quantity:m[i.id],unit:i.unit,condition:c[i.id]||fb||"used"}})}
+    var isSw=jobData.type==="swap",isSa=jobData.type==="sale";
+    var iR=!isSw?bR(jobData.items,jobData.condition,isSa?"new":"used"):[];
+    var soR=isSw?bR(jobData.swapOut,jobData.swapOutCondition,"used"):[];
+    var siR=isSw?bR(jobData.swapIn,jobData.swapInCondition,"used"):[];
+    var eR=bR(jobData.extras,jobData.extrasCondition,"used");
+
+    if(config.googleScriptUrl){
+      var base={timestamp:ts,jobDate:jobData.jobDate,driver:jobData.driverName||config.driverName,customer:jobData.customer,jobSite:jobData.jobSite,poNumber:jobData.poNumber};
+      try{fetch(config.googleScriptUrl,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({action:"inventory"},base,{jobType:jobData.type,items:iR,swapOut:soR,swapIn:siR,extras:eR,extraNotes:jobData.extraNotes,notes:jobData.notes,paymentReceived:isSa?jobData.paymentReceived:null,paymentType:isSa?jobData.paymentType:"",paymentNotes:isSa?jobData.paymentNotes:""}))})}catch(ex){}
+      if(eR.length>0){try{fetch(config.googleScriptUrl,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({action:"email_extras",salesEmail:config.salesEmail},base,{extras:eR,extraNotes:jobData.extraNotes}))})}catch(ex){}}
+      if(isSa){try{fetch(config.googleScriptUrl,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({action:"email_sale",salesEmail:config.salesEmail},base,{items:iR,paymentReceived:jobData.paymentReceived,paymentType:jobData.paymentType,paymentNotes:jobData.paymentNotes}))})}catch(ex){}}
+    }
+    var nh=[entry].concat(history).slice(0,50);setHistory(nh);ls("tgd_fence_hist",nh);
+    setSubmitting(false);setScreen("success");
+  }
+
+  if(!unlocked)return e(PinScreen,{onUnlock:function(){setUnlocked(true)}});
+
+  // ═══ JOB TYPE STEP ═══
+  function renderJobType(){
+    return e("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+      JT.map(function(jt){return e("button",{key:jt.id,onClick:function(){sJD({type:jt.id})},style:{display:"flex",alignItems:"center",padding:"16px 18px",border:"2px solid",borderRadius:14,cursor:"pointer",gap:12,textAlign:"left",width:"100%",borderColor:jobData.type===jt.id?jt.color:"#1e2836",background:jobData.type===jt.id?jt.color+"10":"#141924",boxShadow:jobData.type===jt.id?"0 0 24px "+jt.color+"18":"none"}},
+        e("div",{style:{flex:1}},e("div",{style:{color:"#e2e8f0",fontSize:15,fontWeight:700}},jt.label),e("div",{style:{color:"#64748b",fontSize:12,marginTop:2}},jt.desc)),
+        jobData.type===jt.id&&e("span",{style:{color:jt.color,fontSize:22,fontWeight:800}},"✓")
+      )})
+    );
+  }
+
+  // ═══ CUSTOMER STEP ═══
+  function renderCustomer(){
+    return e("div",{style:{display:"flex",flexDirection:"column"}},
+      e("label",{style:lbl},"Customer Name *"),
+      e("input",{style:inp,value:jobData.customer,onChange:function(ev){sJD({customer:ev.target.value})},placeholder:"e.g. ABC Construction"}),
+      e("label",{style:lbl},"Job Date *"),
+      e(Cal,{selected:jobData.jobDate,onSelect:function(d){sJD({jobDate:d})}}),
+      e("label",{style:lbl},"Job Site Address"),
+      e("input",{style:inp,value:jobData.jobSite,onChange:function(ev){sJD({jobSite:ev.target.value})},placeholder:"e.g. 123 Main St, Los Angeles"}),
+      e("label",{style:lbl},"PO / Work Order #"),
+      e("input",{style:inp,value:jobData.poNumber,onChange:function(ev){sJD({poNumber:ev.target.value})},placeholder:"Optional"})
+    );
+  }
+
+  // ═══ PAYMENT STEP ═══
+  function renderPayment(){
+    var r=jobData.paymentReceived;
+    return e("div",null,
+      e("div",{style:{padding:"12px 16px",border:"1px solid #f59e0b30",borderRadius:12,fontSize:14,display:"flex",alignItems:"center",gap:10,marginBottom:14,background:"#f59e0b10"}},e("span",{style:{fontSize:20}},"💰"),e("span",{style:{color:"#fcd34d"}},"Did you collect payment?")),
+      e("div",{style:{display:"flex",gap:8,marginBottom:20}},
+        e("button",{onClick:function(){sJD({paymentReceived:true})},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"18px 12px",borderRadius:14,cursor:"pointer",border:"2px solid",background:r===true?"#22c55e":"#1e2836",color:r===true?"#fff":"#94a3b8",borderColor:r===true?"#22c55e":"#2a3344"}},e("span",{style:{fontSize:24}},"✅"),e("span",{style:{fontWeight:700,fontSize:15}},"Yes")),
+        e("button",{onClick:function(){sJD({paymentReceived:false,paymentType:"",paymentNotes:""})},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"18px 12px",borderRadius:14,cursor:"pointer",border:"2px solid",background:r===false?"#ef4444":"#1e2836",color:r===false?"#fff":"#94a3b8",borderColor:r===false?"#ef4444":"#2a3344"}},e("span",{style:{fontSize:24}},"❌"),e("span",{style:{fontWeight:700,fontSize:15}},"No"))
+      ),
+      r===true&&e("div",null,
+        e("label",{style:lbl},"Payment Type *"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}},
+          PT.map(function(pt){return e("button",{key:pt.id,onClick:function(){sJD({paymentType:pt.id})},style:{display:"flex",alignItems:"center",gap:10,padding:"14px 16px",borderRadius:12,cursor:"pointer",border:"2px solid",borderColor:jobData.paymentType===pt.id?"#f59e0b":"#1e2836",background:jobData.paymentType===pt.id?"#f59e0b15":"#141924"}},e("span",{style:{fontSize:22}},pt.icon),e("span",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600}},pt.label.split(" ").slice(1).join(" ")),jobData.paymentType===pt.id&&e("span",{style:{marginLeft:"auto",color:"#f59e0b",fontWeight:800}},"✓"))})
+        ),
+        e("label",{style:lbl},"Payment Notes"),
+        e("textarea",{style:ta,value:jobData.paymentNotes,rows:2,onChange:function(ev){sJD({paymentNotes:ev.target.value})},placeholder:"e.g. Check #4521"})
+      ),
+      r===false&&e("div",{style:{padding:16,background:"#ef444412",border:"1px solid #ef444430",borderRadius:12}},
+        e("div",{style:{color:"#fca5a5",fontSize:14,fontWeight:600,marginBottom:6}},"⚠️ Payment Not Collected"),
+        e("div",{style:{color:"#94a3b8",fontSize:13}},"Sales rep will be notified."),
+        e("label",{style:Object.assign({},lbl,{marginTop:12})},"Reason"),
+        e("textarea",{style:ta,value:jobData.paymentNotes,rows:2,onChange:function(ev){sJD({paymentNotes:ev.target.value})},placeholder:"e.g. Customer will call office"})
+      ),
+      r===null&&e("div",{style:{textAlign:"center",padding:20,color:"#475569",fontSize:14}},"Select whether payment was collected")
+    );
+  }
+
+  // ═══ EXTRAS STEP ═══
+  function renderExtras(){
+    var _has=u(Object.values(jobData.extras).some(function(v){return v>0})),has=_has[0],setHas=_has[1];
+    return e("div",null,
+      e("div",{style:{display:"flex",gap:8,marginBottom:14}},
+        e("button",{style:{flex:1,padding:14,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",background:!has?"#22c55e":"#1e2836",color:!has?"#fff":"#94a3b8"},onClick:function(){setHas(false);sJD({extras:{},extrasCondition:{},extraNotes:""})}},"👍 No Extras"),
+        e("button",{style:{flex:1,padding:14,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",background:has?"#f59e0b":"#1e2836",color:has?"#fff":"#94a3b8"},onClick:function(){setHas(true)}},"⚠️ Yes, Extras")
+      ),
+      has?e("div",null,
+        e("div",{style:{padding:"10px 14px",background:"#f59e0b12",border:"1px solid #f59e0b30",borderRadius:10,color:"#fbbf24",fontSize:13,fontWeight:600,marginBottom:14,textAlign:"center"}},"⚡ Sales rep will be emailed"),
+        e(MatPick,{items:jobData.extras,conds:jobData.extrasCondition,onChange:function(it,co){sJD({extras:it,extrasCondition:co})},showCond:true,defaultCond:"used"}),
+        e("label",{style:Object.assign({},lbl,{marginTop:14})},"Notes"),
+        e("textarea",{style:ta,value:jobData.extraNotes,rows:3,onChange:function(ev){sJD({extraNotes:ev.target.value})},placeholder:"e.g. 20 extra panels"})
+      ):e("div",{style:{textAlign:"center",padding:"36px 20px"}},e("span",{style:{fontSize:40}},"👍"),e("p",{style:{color:"#64748b",margin:"8px 0 0"}},"No extras — all good!"))
+    );
+  }
+
+  // ═══ REVIEW STEP ═══
+  function renderReview(){
+    var jt=JT.find(function(j){return j.id===jobData.type}),isSw=jobData.type==="swap",isSa=jobData.type==="sale";
+    function fl(m,c,fb){return FENCE_ITEMS.filter(function(i){return m[i.id]>0}).map(function(i){return{id:i.id,name:i.name,unit:i.unit,qty:m[i.id],cond:(c&&c[i.id])||fb||"used"}})}
+    var mI=fl(jobData.items,jobData.condition,isSa?"new":"used"),oI=fl(jobData.swapOut,jobData.swapOutCondition,"used"),iI=fl(jobData.swapIn,jobData.swapInCondition,"used"),eI=fl(jobData.extras,jobData.extrasCondition,"used");
+    var pL=PT.find(function(p){return p.id===jobData.paymentType});
+    function IL(items,label,clr){return e("div",null,e("div",{style:{color:clr||"#cbd5e1",fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}},label),items.map(function(i){return e("div",{key:i.id,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:14,color:clr||"#cbd5e1"}},e("span",null,i.name),e("span",{style:{fontWeight:700,display:"flex",alignItems:"center",gap:8}},e("span",{style:{fontSize:10,fontWeight:800,padding:"2px 6px",borderRadius:4,letterSpacing:0.5,background:i.cond==="new"?"#22c55e18":"#64748b18",color:i.cond==="new"?"#4ade80":"#94a3b8"}},i.cond==="new"?"NEW":"USED"),i.qty+" "+i.unit))}))}
+
+    return e("div",null,
+      e("div",{style:{background:"#141924",border:"1px solid #1e2836",borderRadius:16,padding:18,marginBottom:14}},
+        e("span",{style:{display:"inline-block",padding:"5px 12px",borderRadius:8,color:"#fff",fontSize:13,fontWeight:700,marginBottom:14,background:jt?jt.color:"#666"}},jt?jt.label:""),
+        e("div",{style:{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #1a2030"}},e("span",{style:{color:"#64748b",fontSize:13}},"Customer"),e("span",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600}},jobData.customer)),
+        e("div",{style:{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #1a2030"}},e("span",{style:{color:"#64748b",fontSize:13}},"Job Date"),e("span",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600}},"📅 "+fmtDisp(jobData.jobDate))),
+        jobData.jobSite&&e("div",{style:{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #1a2030"}},e("span",{style:{color:"#64748b",fontSize:13}},"Job Site"),e("span",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600}},jobData.jobSite)),
+        jobData.poNumber&&e("div",{style:{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #1a2030"}},e("span",{style:{color:"#64748b",fontSize:13}},"PO #"),e("span",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600}},jobData.poNumber)),
+        e("div",{style:{borderTop:"1px solid #1e2836",margin:"12px 0"}}),
+        isSw&&e("div",null,IL(oI,"📤 Picked Up","#f87171"),e("div",{style:{borderTop:"1px solid #1e2836",margin:"12px 0"}}),IL(iI,"📥 Dropped Off","#4ade80")),
+        isSa&&IL(mI,"💰 Materials Sold","#fbbf24"),
+        !isSw&&!isSa&&IL(mI,jobData.type==="pickup"?"📦 Picked Up":"📦 Materials"),
+        isSa&&e("div",null,
+          e("div",{style:{borderTop:"1px solid #1e2836",margin:"12px 0"}}),
+          e("div",{style:{fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8,color:jobData.paymentReceived?"#4ade80":"#f87171"}},"💰 Payment"),
+          e("div",{style:{padding:"12px 16px",borderRadius:10,background:jobData.paymentReceived?"#22c55e10":"#ef444410",border:"1px solid "+(jobData.paymentReceived?"#22c55e30":"#ef444430")}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              e("span",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600}},jobData.paymentReceived?"✅ Received":"❌ NOT Received"),
+              jobData.paymentReceived&&pL&&e("span",{style:{padding:"4px 10px",borderRadius:8,background:"#f59e0b20",color:"#fbbf24",fontSize:12,fontWeight:700}},pL.label)
+            ),
+            jobData.paymentNotes&&e("div",{style:{color:"#94a3b8",fontSize:13,marginTop:6}},"📝 "+jobData.paymentNotes)
+          ),
+          !jobData.paymentReceived&&e("div",{style:{padding:"8px 12px",background:"#3b82f610",borderRadius:8,color:"#60a5fa",fontSize:13,marginTop:8,textAlign:"center"}},"📧 Sales rep notified")
+        ),
+        eI.length>0&&e("div",null,
+          e("div",{style:{borderTop:"1px solid #f59e0b30",margin:"12px 0"}}),
+          IL(eI,"⚠️ Extras","#fbbf24"),
+          jobData.extraNotes&&e("div",{style:{padding:"8px 12px",background:"#f59e0b10",borderRadius:8,color:"#fbbf24",fontSize:13,marginTop:8}},"📝 "+jobData.extraNotes),
+          e("div",{style:{padding:"8px 12px",background:"#3b82f610",borderRadius:8,color:"#60a5fa",fontSize:13,marginTop:8,textAlign:"center"}},"📧 Email → "+(config.salesEmail||"sales rep"))
+        )
+      ),
+      e("label",{style:lbl},"Driver Notes"),
+      e("textarea",{style:ta,value:jobData.notes,rows:2,onChange:function(ev){sJD({notes:ev.target.value})},placeholder:"Additional notes..."})
+    );
+  }
+
+  // ═══ WIZARD BODY ═══
+  function renderStep(){
+    if(step===0)return renderJobType();
+    if(step===1)return renderCustomer();
+    if(step===2&&!["swap","sale"].includes(jobData.type))return e(MatPick,{items:jobData.items,conds:jobData.condition,onChange:function(it,co){sJD({items:it,condition:co})},showCond:true,defaultCond:"used"});
+    if(step===2&&jobData.type==="swap")return e("div",null,e("div",{style:{padding:"12px 16px",border:"1px solid #a855f730",borderRadius:12,fontSize:14,display:"flex",alignItems:"center",gap:10,marginBottom:14,background:"#a855f710"}},e("span",{style:{fontSize:20}},"📤"),e("span",{style:{color:"#c4b5fd"}},e("span",null,"What are you "),e("b",null,"taking BACK"),e("span",null,"?"))),e(MatPick,{items:jobData.swapOut,conds:jobData.swapOutCondition,onChange:function(it,co){sJD({swapOut:it,swapOutCondition:co})},showCond:true,defaultCond:"used"}));
+    if(step===3&&jobData.type==="swap")return e("div",null,e("div",{style:{padding:"12px 16px",border:"1px solid #22c55e30",borderRadius:12,fontSize:14,display:"flex",alignItems:"center",gap:10,marginBottom:14,background:"#22c55e10"}},e("span",{style:{fontSize:20}},"📥"),e("span",{style:{color:"#86efac"}},e("span",null,"What are you "),e("b",null,"DELIVERING"),e("span",null," as replacement?"))),e(MatPick,{items:jobData.swapIn,conds:jobData.swapInCondition,onChange:function(it,co){sJD({swapIn:it,swapInCondition:co})},showCond:true,defaultCond:"used"}));
+    if(step===2&&jobData.type==="sale")return e("div",null,e("div",{style:{padding:"12px 16px",border:"1px solid #f59e0b30",borderRadius:12,fontSize:14,display:"flex",alignItems:"center",gap:10,marginBottom:14,background:"#f59e0b10"}},e("span",{style:{fontSize:20}},"💰"),e("span",{style:{color:"#fcd34d"}},e("span",null,"All sales use "),e("b",null,"NEW"),e("span",null," materials only"))),e(MatPick,{items:jobData.items,conds:jobData.condition,onChange:function(it,co){sJD({items:it,condition:co})},showCond:false,forceCond:"new"}));
+    if(step===3&&jobData.type==="sale")return renderPayment();
+    if((jobData.type==="swap"&&step===4)||(!["swap","sale"].includes(jobData.type)&&step===3))return renderExtras();
+    if(step===tot-1&&step>1)return renderReview();
+    return null;
+  }
+
+  // ═══ HOME ═══
+  function renderHome(){
+    return e("div",{style:{padding:"16px 16px 20px"}},
+      e("div",{style:{textAlign:"center",marginBottom:24}},
+        e("div",{style:{fontSize:52,marginBottom:6}},"🏗️"),
+        e("h1",{style:{color:"#22c55e",fontSize:21,fontWeight:800,margin:"0 0 2px"}},"The Green Dumpster"),
+        e("p",{style:{color:"#94a3b8",fontSize:14,margin:0}},"Fence Inventory Tracker"),
+        config.driverName&&e("p",{style:{color:"#e2e8f0",fontSize:16,marginTop:10,fontWeight:600}},"Hey "+config.driverName+" 👋")
+      ),
+      e("button",{style:{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"18px 20px",background:"linear-gradient(135deg,#14532d,#166534)",border:"1px solid #22c55e25",borderRadius:16,color:"#fff",cursor:"pointer",marginBottom:10,textAlign:"left",boxSizing:"border-box"},onClick:function(){setJobData(blankJob(config.driverName));setStep(0);setScreen("job")}},
+        e("span",{style:{fontSize:28}},"📋"),
+        e("span",{style:{flex:1,textAlign:"left"}},e("strong",{style:{fontSize:16}},"Start New Job"),e("br"),e("span",{style:{fontSize:13,color:"#86efac",opacity:0.8}},"Delivery, pickup, swap, sale, or audit")),
+        e("span",{style:{fontSize:20,opacity:0.5}},"→")
+      ),
+      e("button",{style:{width:"100%",padding:"13px 20px",background:"#141924",border:"1px solid #1e2836",borderRadius:12,color:"#94a3b8",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,boxSizing:"border-box"},onClick:function(){setScreen("history")}},"📜 View Recent Jobs"),
+      e("button",{style:{width:"100%",padding:"13px 20px",background:"#141924",border:"1px solid #ef444430",borderRadius:12,color:"#ef4444",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,boxSizing:"border-box"},onClick:function(){setUnlocked(false)}},"🔒 Lock App"),
+      !config.googleScriptUrl&&e("div",{style:{padding:"10px 14px",background:"#f59e0b12",border:"1px solid #f59e0b30",borderRadius:10,color:"#fbbf24",fontSize:13,fontWeight:600,marginBottom:14,textAlign:"center"}},"⚠️ Google Sheets not connected. Tap ⚙️ to set up."),
+      e("div",{style:{padding:"14px 16px",background:"#141924",border:"1px solid #1e2836",borderRadius:14,marginTop:4}},
+        e("div",{style:{color:"#e2e8f0",fontSize:14,fontWeight:700,marginBottom:10}},"📌 Inventory Rules"),
+        e("div",{style:{color:"#94a3b8",fontSize:13,padding:"3px 0",lineHeight:1.5}},e("span",{style:{color:"#4ade80"}},"★ NEW")," → reserved for ",e("strong",{style:{color:"#e2e8f0"}},"Sales")),
+        e("div",{style:{color:"#94a3b8",fontSize:13,padding:"3px 0",lineHeight:1.5}},"USED → for ",e("strong",{style:{color:"#e2e8f0"}},"Rentals")),
+        e("div",{style:{color:"#64748b",fontSize:12,padding:"3px 0",fontStyle:"italic"}},"Only use NEW for rentals if USED is out")
+      )
+    );
+  }
+
+  // ═══ SUCCESS ═══
+  function renderSuccess(){
+    var hasE=Object.values(jobData.extras).some(function(v){return v>0});
+    var jt=JT.find(function(j){return j.id===jobData.type}),isSa=jobData.type==="sale";
+    return e("div",{style:{padding:"40px 20px",textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center"}},
+      e("div",{style:{fontSize:60,marginBottom:8}},"✅"),
+      e("h2",{style:{color:"#22c55e",fontSize:24,fontWeight:800,margin:"0 0 6px"}},"Submitted!"),
+      e("p",{style:{color:"#94a3b8",fontSize:14,margin:"0 0 4px"}},jt?jt.label:""),
+      e("p",{style:{color:"#cbd5e1",fontSize:17,fontWeight:700,margin:"0 0 4px"}},jobData.customer),
+      e("p",{style:{color:"#64748b",fontSize:13,margin:"0 0 24px"}},"📅 "+fmtDisp(jobData.jobDate)),
+      e("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:28,width:"100%"}},
+        e("div",{style:{padding:"10px 16px",background:"#22c55e10",borderRadius:10,color:"#22c55e",fontSize:14,fontWeight:600}},"📊 Inventory sheet updated"),
+        hasE&&e("div",{style:{padding:"10px 16px",background:"#f59e0b10",borderRadius:10,color:"#fbbf24",fontSize:14,fontWeight:600}},"📧 Sales rep notified — extras"),
+        jobData.type==="swap"&&e("div",{style:{padding:"10px 16px",background:"#a855f710",borderRadius:10,color:"#c4b5fd",fontSize:14,fontWeight:600}},"🔄 Swap recorded"),
+        isSa&&e("div",{style:{padding:"10px 16px",borderRadius:10,fontSize:14,fontWeight:600,background:jobData.paymentReceived?"#22c55e10":"#ef444410",color:jobData.paymentReceived?"#4ade80":"#fca5a5"}},jobData.paymentReceived?"💰 Paid ("+(PT.find(function(p){return p.id===jobData.paymentType})||{}).label+")":"💰 ⚠️ Unpaid"),
+        isSa&&e("div",{style:{padding:"10px 16px",background:"#3b82f610",borderRadius:10,color:"#60a5fa",fontSize:14,fontWeight:600}},"📧 Sales rep emailed")
+      ),
+      e("button",{style:{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"18px 20px",background:"linear-gradient(135deg,#14532d,#166534)",border:"1px solid #22c55e25",borderRadius:16,color:"#fff",cursor:"pointer",marginBottom:10,textAlign:"left",boxSizing:"border-box"},onClick:resetJob},
+        e("span",{style:{fontSize:28}},"➕"),e("span",{style:{flex:1,textAlign:"left"}},e("strong",{style:{fontSize:16}},"Start Another Job")),e("span",{style:{fontSize:20,opacity:0.5}},"→"))
+    );
+  }
+
+  // ═══ CONFIG ═══
+  function renderConfig(){
+    var _l=u(config),l=_l[0],sL=_l[1];
+    function uL(k,v){sL(function(c){var n=Object.assign({},c);n[k]=v;return n})}
+    return e("div",{style:{padding:"16px 16px 20px"}},
+      e("div",{style:cfgSec},e("h3",{style:cfgH},"👤 Driver Name"),e("input",{style:inp,value:l.driverName,onChange:function(ev){uL("driverName",ev.target.value)},placeholder:"e.g. Mike"})),
+      e("div",{style:cfgSec},e("h3",{style:cfgH},"📊 Google Script URL"),e("p",{style:{color:"#64748b",fontSize:13,margin:"0 0 8px"}},"Paste deployed Apps Script URL"),e("input",{style:inp,value:l.googleScriptUrl,onChange:function(ev){uL("googleScriptUrl",ev.target.value)},placeholder:"https://script.google.com/macros/s/..."})),
+      e("div",{style:cfgSec},e("h3",{style:cfgH},"📧 Sales Rep Email"),e("input",{style:inp,type:"email",value:l.salesEmail,onChange:function(ev){uL("salesEmail",ev.target.value)},placeholder:"sales@thegreendumpster.com"})),
+      e("button",{style:{width:"100%",padding:15,background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",marginBottom:14,boxSizing:"border-box"},onClick:function(){saveCfg(l)}},configSaved?"✅ Saved!":"💾 Save Settings"),
+      e("div",{style:Object.assign({},cfgSec,{borderColor:"#64748b30"})},e("h3",{style:cfgH},"🔒 PIN: 9909"),e("p",{style:{color:"#64748b",fontSize:13,margin:0}},"Share with authorized drivers only"))
+    );
+  }
+
+  // ═══ HISTORY ═══
+  function renderHistory(){
+    if(!history.length)return e("div",{style:{textAlign:"center",padding:"60px 20px",color:"#64748b"}},e("span",{style:{fontSize:48}},"📭"),e("p",null,"No jobs yet"));
+    return e("div",{style:{padding:"16px 16px 20px"}},
+      history.map(function(job){
+        var jt=JT.find(function(j){return j.id===job.type});
+        var hasE=Object.values(job.extras||{}).some(function(v){return v>0});
+        return e("div",{key:job.id,style:{background:"#141924",border:"1px solid #1e2836",borderRadius:14,padding:"14px 16px",marginBottom:8}},
+          e("div",{style:{display:"flex",gap:6,alignItems:"center",marginBottom:6}},
+            e("span",{style:{padding:"3px 10px",borderRadius:6,color:"#fff",fontSize:12,fontWeight:700,background:jt?jt.color:"#666"}},jt?jt.label:job.type),
+            hasE&&e("span",{style:{color:"#f59e0b",fontSize:14}},"⚠️"),
+            job.type==="sale"&&e("span",{style:{padding:"3px 8px",borderRadius:6,fontSize:11,fontWeight:700,background:job.paymentReceived?"#22c55e18":"#ef444418",color:job.paymentReceived?"#4ade80":"#fca5a5"}},job.paymentReceived?"💰 Paid":"⚠️ Unpaid")
+          ),
+          e("div",{style:{color:"#e2e8f0",fontSize:15,fontWeight:700}},job.customer),
+          e("div",{style:{display:"flex",gap:10,color:"#64748b",fontSize:13,marginTop:2}},job.jobDate&&e("span",null,"📅 "+fmtDisp(job.jobDate)),job.jobSite&&e("span",null,"📍 "+job.jobSite)),
+          e("div",{style:{color:"#475569",fontSize:12,marginTop:4}},job.timestamp)
+        );
+      })
+    );
+  }
+
+  // ═══ RENDER ═══
+  return e("div",{style:{minHeight:"100vh",minHeight:"100dvh",background:"#0c1017",display:"flex",justifyContent:"center"}},
+    e("div",{style:{width:"100%",maxWidth:480,minHeight:"100vh",minHeight:"100dvh",background:"#111827",display:"flex",flexDirection:"column"}},
+      // Header
+      e("div",{style:{display:"flex",alignItems:"center",padding:"14px 16px",borderBottom:"1px solid #1e2836",position:"sticky",top:0,zIndex:100,background:"#111827"}},
+        e("div",{style:{width:72}},screen!=="home"&&e("button",{onClick:function(){screen==="success"?resetJob():screen==="job"&&step>0?setStep(step-1):setScreen("home")},style:{background:"none",border:"none",color:"#22c55e",fontSize:15,fontWeight:600,cursor:"pointer",padding:0}},"← "+(screen==="job"&&step>0?"Back":"Home"))),
+        e("div",{style:{flex:1,textAlign:"center",color:"#e2e8f0",fontWeight:700,fontSize:15}},screen==="home"?"🏗️ Fence Tracker":screen==="job"?"Step "+(step+1)+" / "+tot:screen==="config"?"⚙️ Setup":screen==="history"?"📜 History":"✅ Done"),
+        e("div",{style:{width:72,textAlign:"right"}},screen==="home"&&e("button",{onClick:function(){setScreen("config")},style:{background:"none",border:"none",fontSize:22,cursor:"pointer"}},"⚙️"))
+      ),
+      // Progress
+      screen==="job"&&e("div",{style:{height:3,background:"#1e2836"}},e("div",{style:{height:"100%",background:"linear-gradient(90deg,#22c55e,#16a34a)",transition:"width 0.35s ease",borderRadius:3,width:((step+1)/tot*100)+"%"}})),
+      // Body
+      e("div",{style:{flex:1,overflowY:"auto",paddingBottom:40,WebkitOverflowScrolling:"touch"}},
+        screen==="home"&&renderHome(),
+        screen==="job"&&e("div",{style:{padding:"16px 16px 0"}},
+          e("h2",{style:{color:"#e2e8f0",fontSize:21,fontWeight:800,margin:"0 0 14px"}},steps[step]),
+          e("div",{style:{minHeight:280}},renderStep()),
+          e("div",{style:{display:"flex",padding:"18px 0",marginTop:10,borderTop:"1px solid #1e2836",position:"sticky",bottom:0,background:"#111827"}},
+            e("div",{style:{flex:1}}),
+            step<tot-1?e("button",{style:{padding:"14px 32px",background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",opacity:canNext()?1:0.3},disabled:!canNext(),onClick:function(){setStep(step+1)}},"Next →"):
+            e("button",{style:{padding:"14px 32px",background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(34,197,94,0.25)",opacity:submitting?0.5:1},disabled:submitting,onClick:submitJob},submitting?"Submitting...":"✅ Submit Job")
+          )
+        ),
+        screen==="config"&&renderConfig(),
+        screen==="history"&&renderHistory(),
+        screen==="success"&&renderSuccess()
+      )
+    )
+  );
+}
+
+var lbl={color:"#94a3b8",fontSize:12,fontWeight:700,marginTop:12,marginBottom:4,textTransform:"uppercase",letterSpacing:0.6,display:"block"};
+var inp={padding:"13px 14px",background:"#141924",border:"1px solid #1e2836",borderRadius:12,color:"#e2e8f0",fontSize:16,outline:"none",width:"100%",boxSizing:"border-box"};
+var ta={padding:"13px 14px",background:"#141924",border:"1px solid #1e2836",borderRadius:12,color:"#e2e8f0",fontSize:15,outline:"none",resize:"vertical",fontFamily:"inherit",width:"100%",boxSizing:"border-box"};
+var cfgSec={background:"#141924",border:"1px solid #1e2836",borderRadius:14,padding:"14px 16px",marginBottom:14};
+var cfgH={color:"#e2e8f0",fontSize:15,fontWeight:700,margin:"0 0 8px"};
+
+ReactDOM.render(e(App),document.getElementById("root"));
+</script>
+</body>
+</html>
