@@ -32,17 +32,17 @@ var FENCE_ITEMS=[
 {id:"8x12_panel",name:"8\u00d712 Fence Panel",unit:"panels",category:"Panels"},
 {id:"6x10_ped",name:"6\u00d710 Panel w/ Ped Gate",unit:"panels",category:"Panels"},
 {id:"8x10_ped",name:"8\u00d710 Panel w/ Ped Gate",unit:"panels",category:"Panels"},
-{id:"posts",name:"Fence Posts",unit:"posts",category:"Hardware"},
+{id:"posts",name:"Fence Posts",unit:"posts",category:"Hardware",alwaysNew:true},
 {id:"bases",name:"Fence Bases / Stands",unit:"bases",category:"Hardware"},
-{id:"clamps",name:"Fence Clamps",unit:"clamps",category:"Hardware"},
-{id:"wheels",name:"Fence Wheels",unit:"wheels",category:"Hardware"},
-{id:"grn6ws",name:"Green 6ft Windscreen",unit:"ft",category:"Windscreen"},
-{id:"grn8ws",name:"Green 8ft Windscreen",unit:"ft",category:"Windscreen"},
-{id:"blk6ws",name:"Black 6ft Windscreen",unit:"ft",category:"Windscreen"},
-{id:"blk8ws",name:"Black 8ft Windscreen",unit:"ft",category:"Windscreen"},
+{id:"clamps",name:"Fence Clamps",unit:"clamps",category:"Hardware",alwaysNew:true},
+{id:"wheels",name:"Fence Wheels",unit:"wheels",category:"Hardware",alwaysNew:true},
+{id:"grn6ws",name:"Green 6ft Windscreen",unit:"ft",category:"Windscreen",alwaysNew:true},
+{id:"grn8ws",name:"Green 8ft Windscreen",unit:"ft",category:"Windscreen",alwaysNew:true},
+{id:"blk6ws",name:"Black 6ft Windscreen",unit:"ft",category:"Windscreen",alwaysNew:true},
+{id:"blk8ws",name:"Black 8ft Windscreen",unit:"ft",category:"Windscreen",alwaysNew:true},
 {id:"pedgates",name:"Pedestrian Gates",unit:"gates",category:"Gates"},
 {id:"barricades",name:"Barricades",unit:"pcs",category:"Other"},
-{id:"sandbags",name:"Sandbags",unit:"bags",category:"Other"}];
+{id:"sandbags",name:"Sandbags",unit:"bags",category:"Other",alwaysNew:true}];
 
 var CATS=["Panels","Hardware","Windscreen","Gates","Other"];
 var JT=[
@@ -133,21 +133,22 @@ function CalendarPicker(props){
 // ═══════════════════════════════════════════════
 function MatPick(props){
   var s1=useState(CATS[0]),cat=s1[0],sCat=s1[1];
-  function upd(id,d){var ni=merge(props.items);ni[id]=Math.max(0,(ni[id]||0)+d);var nc=merge(props.conds);if(!nc[id])nc[id]=props.forceCond||props.defaultCond||"used";props.onChange(ni,nc)}
-  function setV(id,v){var ni=merge(props.items);ni[id]=Math.max(0,parseInt(v)||0);var nc=merge(props.conds);if(!nc[id])nc[id]=props.forceCond||props.defaultCond||"used";props.onChange(ni,nc)}
-  function togC(id){if(props.forceCond)return;var nc=merge(props.conds);nc[id]=nc[id]==="new"?"used":"new";props.onChange(props.items,nc)}
+  function getCond(item){if(item.alwaysNew||props.forceCond==="new")return"new";return props.conds[item.id]||props.defaultCond||"used"}
+  function upd(id,d){var ni=merge(props.items);ni[id]=Math.max(0,(ni[id]||0)+d);var nc=merge(props.conds);var itm=FENCE_ITEMS.find(function(x){return x.id===id});nc[id]=itm&&itm.alwaysNew?"new":props.forceCond||nc[id]||props.defaultCond||"used";props.onChange(ni,nc)}
+  function setV(id,v){var ni=merge(props.items);ni[id]=Math.max(0,parseInt(v)||0);var nc=merge(props.conds);var itm=FENCE_ITEMS.find(function(x){return x.id===id});nc[id]=itm&&itm.alwaysNew?"new":props.forceCond||nc[id]||props.defaultCond||"used";props.onChange(ni,nc)}
+  function togC(id){if(props.forceCond)return;var itm=FENCE_ITEMS.find(function(x){return x.id===id});if(itm&&itm.alwaysNew)return;var nc=merge(props.conds);nc[id]=nc[id]==="new"?"used":"new";props.onChange(props.items,nc)}
   function cntA(c){return FENCE_ITEMS.filter(function(i){return i.category===c&&props.items[i.id]>0}).length}
   return h("div",null,
     h("div",{style:{display:"flex",gap:6,overflowX:"auto",paddingBottom:10,marginBottom:4}},
       CATS.map(function(c){var n=cntA(c);return h("button",{key:c,onClick:function(){sCat(c)},style:{padding:"8px 14px",borderRadius:10,border:"1px solid",background:cat===c?"#22c55e15":"#141924",borderColor:cat===c?"#22c55e35":"#1e2836",color:cat===c?"#4ade80":"#64748b",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}},c,n>0&&h("span",{style:{background:"#22c55e",color:"#fff",fontSize:11,fontWeight:800,borderRadius:8,padding:"1px 6px"}},n))})),
     h("div",{style:{display:"flex",flexDirection:"column",gap:6}},
       FENCE_ITEMS.filter(function(it){return it.category===cat}).map(function(item){
-        var qty=props.items[item.id]||0,cond=props.forceCond||props.conds[item.id]||props.defaultCond||"used",isN=cond==="new";
+        var qty=props.items[item.id]||0,cond=getCond(item),isN=cond==="new",locked=item.alwaysNew||props.forceCond==="new";
         return h("div",{key:item.id,style:{padding:"12px 14px",border:"1px solid",borderRadius:12,background:qty>0?(isN?"#0a1f10":"#0d1520"):"#141924",borderColor:qty>0?(isN?"#22c55e28":"#3b82f628"):"#1e2836"}},
           h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
             h("div",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600,flex:1}},item.name),
-            qty>0&&props.showCond&&!props.forceCond&&h("button",{onClick:function(){togC(item.id)},style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,border:"1px solid",cursor:"pointer",background:isN?"#22c55e18":"#64748b18",color:isN?"#4ade80":"#94a3b8",borderColor:isN?"#22c55e40":"#64748b40"}},isN?"\u2605 NEW":"USED"),
-            qty>0&&props.forceCond==="new"&&h("span",{style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,background:"#22c55e18",color:"#4ade80",border:"1px solid #22c55e40"}},"\u2605 NEW")),
+            qty>0&&locked&&h("span",{style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,background:"#22c55e18",color:"#4ade80",border:"1px solid #22c55e40"}},"\u2605 NEW"),
+            qty>0&&props.showCond&&!locked&&h("button",{onClick:function(){togC(item.id)},style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,border:"1px solid",cursor:"pointer",background:isN?"#22c55e18":"#64748b18",color:isN?"#4ade80":"#94a3b8",borderColor:isN?"#22c55e40":"#64748b40"}},isN?"\u2605 NEW":"USED")),
           h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
             h("span",{style:{color:"#64748b",fontSize:12}},item.unit),
             h("div",{style:{display:"flex",alignItems:"center",gap:4}},
@@ -311,7 +312,12 @@ function App(){
     h("button",{onClick:function(){setJD(blankJob(config.driverName));setStep(0);setScreen("job")},style:{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"18px 20px",background:"linear-gradient(135deg,#14532d,#166534)",border:"1px solid #22c55e25",borderRadius:16,color:"#fff",cursor:"pointer",marginBottom:10,boxSizing:"border-box"}},h("span",{style:{fontSize:28}},"\ud83d\udccb"),h("span",{style:{flex:1,textAlign:"left"}},h("strong",{style:{fontSize:16}},"Start New Job"),h("br"),h("span",{style:{fontSize:13,color:"#86efac"}},"Delivery, pickup, swap, sale, or audit")),h("span",{style:{fontSize:20,opacity:0.5}},"\u2192")),
     h("button",{onClick:function(){setScreen("history")},style:{width:"100%",padding:"13px 20px",background:"#141924",border:"1px solid #1e2836",borderRadius:12,color:"#94a3b8",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,boxSizing:"border-box"}},"\ud83d\udcdc View Recent Jobs"),
     h("button",{onClick:function(){setUnlocked(false)},style:{width:"100%",padding:"13px 20px",background:"#141924",border:"1px solid #ef444430",borderRadius:12,color:"#ef4444",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,boxSizing:"border-box"}},"\ud83d\udd12 Lock App"),
-    !config.googleScriptUrl&&h("div",{style:{padding:"10px 14px",background:"#f59e0b12",border:"1px solid #f59e0b30",borderRadius:10,color:"#fbbf24",fontSize:13,fontWeight:600,marginBottom:14,textAlign:"center"}},"\u26a0\ufe0f Google Sheets not connected. Tap \u2699\ufe0f to set up."));}
+    !config.googleScriptUrl&&h("div",{style:{padding:"10px 14px",background:"#f59e0b12",border:"1px solid #f59e0b30",borderRadius:10,color:"#fbbf24",fontSize:13,fontWeight:600,marginBottom:14,textAlign:"center"}},"\u26a0\ufe0f Google Sheets not connected. Tap \u2699\ufe0f to set up."),
+    h("div",{style:{padding:"14px 16px",background:"#141924",border:"1px solid #1e2836",borderRadius:14,marginTop:4}},
+      h("div",{style:{color:"#e2e8f0",fontSize:14,fontWeight:700,marginBottom:10}},"\ud83d\udccc Inventory Rules"),
+      h("div",{style:{color:"#94a3b8",fontSize:13,padding:"3px 0"}},h("span",{style:{color:"#4ade80"}},"\u2605 NEW only"),": Windscreen, Posts, Clamps, Wheels, Sandbags"),
+      h("div",{style:{color:"#94a3b8",fontSize:13,padding:"3px 0"}},"NEW/USED toggle: Panels, Bases, Gates, Barricades"),
+      h("div",{style:{color:"#64748b",fontSize:12,padding:"3px 0",fontStyle:"italic"}},"Material Sales always use NEW stock")));}
 
   // ── SUCCESS ──
   function renderSuccess(){var jt=JT.find(function(j){return j.id===jd.type}),isSa=jd.type==="sale",hasE=Object.values(jd.extras).some(function(v){return v>0});
