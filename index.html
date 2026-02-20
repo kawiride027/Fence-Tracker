@@ -165,7 +165,7 @@ function ConfigScreen(props){
   return h("div",{style:{padding:"16px 16px 20px"}},
     h("div",{style:merge(cfgSec)},h("h3",{style:cfgH},"\ud83d\udc64 Driver Name"),h("input",{style:inp,value:loc.driverName,onChange:function(ev){up("driverName",ev.target.value)},placeholder:"e.g. Mike"})),
     h("div",{style:merge(cfgSec)},h("h3",{style:cfgH},"\ud83d\udcca Google Script URL"),h("p",{style:{color:"#64748b",fontSize:13,margin:"0 0 8px"}},"Paste deployed Apps Script URL"),h("input",{style:inp,value:loc.googleScriptUrl,onChange:function(ev){up("googleScriptUrl",ev.target.value)},placeholder:"https://script.google.com/macros/s/..."})),
-    h("div",{style:merge(cfgSec)},h("h3",{style:cfgH},"\ud83d\udce7 Sales Rep Email"),h("input",{style:inp,type:"email",value:loc.salesEmail,onChange:function(ev){up("salesEmail",ev.target.value)},placeholder:"sales@thegreendumpster.com"})),
+    h("div",{style:merge(cfgSec)},h("h3",{style:cfgH},"\ud83d\udce7 Sales Rep Email"),h("input",{style:inp,type:"email",value:loc.salesEmail,onChange:function(ev){up("salesEmail",ev.target.value)},placeholder:"kevin@thegreendumpster.com"})),
     h("button",{style:{width:"100%",padding:15,background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",borderRadius:12,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",marginBottom:14,boxSizing:"border-box"},onClick:function(){props.onSave(loc)}},props.saved?"\u2705 Saved!":"\ud83d\udcbe Save Settings"),
     h("div",{style:merge(cfgSec,{borderColor:"#64748b30"})},h("h3",{style:cfgH},"\ud83d\udd12 PIN: 9909"),h("p",{style:{color:"#64748b",fontSize:13,margin:0}},"Share with authorized drivers only")));}
 
@@ -194,7 +194,7 @@ function App(){
   var s2=useState("home"),screen=s2[0],setScreen=s2[1];
   var s3=useState(0),step=s3[0],setStep=s3[1];
   var s4=useState(blankJob("")),jd=s4[0],setJD=s4[1];
-  var s5=useState({googleScriptUrl:"",salesEmail:"",driverName:""}),config=s5[0],setConfig=s5[1];
+  var s5=useState({googleScriptUrl:"",salesEmail:"kevin@thegreendumpster.com",driverName:""}),config=s5[0],setConfig=s5[1];
   var s6=useState(false),submitting=s6[0],setSubmitting=s6[1];
   var s7=useState([]),history=s7[0],setHistory=s7[1];
   var s8=useState(false),cfgSaved=s8[0],setCfgSaved=s8[1];
