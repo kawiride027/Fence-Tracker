@@ -26,22 +26,22 @@ var APP_PIN="9909";
 
 // ── DATA ──
 var FENCE_ITEMS=[
-{id:"6x10_panel",name:"6\u00d710 Fence Panel",unit:"panels",category:"Panels"},
-{id:"8x10_panel",name:"8\u00d710 Fence Panel",unit:"panels",category:"Panels"},
-{id:"6x12_panel",name:"6\u00d712 Fence Panel",unit:"panels",category:"Panels"},
-{id:"8x12_panel",name:"8\u00d712 Fence Panel",unit:"panels",category:"Panels"},
-{id:"6x10_ped",name:"6\u00d710 Panel w/ Ped Gate",unit:"panels",category:"Panels"},
-{id:"8x10_ped",name:"8\u00d710 Panel w/ Ped Gate",unit:"panels",category:"Panels"},
+{id:"6x10_panel",name:"6\u00d710 Fence Panel",unit:"panels",category:"Panels",hasBoth:true},
+{id:"8x10_panel",name:"8\u00d710 Fence Panel",unit:"panels",category:"Panels",hasBoth:true},
+{id:"6x12_panel",name:"6\u00d712 Fence Panel",unit:"panels",category:"Panels",hasBoth:true},
+{id:"8x12_panel",name:"8\u00d712 Fence Panel",unit:"panels",category:"Panels",hasBoth:true},
+{id:"6x10_ped",name:"6\u00d710 Panel w/ Ped Gate",unit:"panels",category:"Panels",hasBoth:true},
+{id:"8x10_ped",name:"8\u00d710 Panel w/ Ped Gate",unit:"panels",category:"Panels",hasBoth:true},
 {id:"posts",name:"Fence Posts",unit:"posts",category:"Hardware",alwaysNew:true},
-{id:"bases",name:"Fence Bases / Stands",unit:"bases",category:"Hardware"},
+{id:"bases",name:"Fence Bases / Stands",unit:"bases",category:"Hardware",hasBoth:true},
 {id:"clamps",name:"Fence Clamps",unit:"clamps",category:"Hardware",alwaysNew:true},
 {id:"wheels",name:"Fence Wheels",unit:"wheels",category:"Hardware",alwaysNew:true},
 {id:"grn6ws",name:"Green 6ft Windscreen",unit:"ft",category:"Windscreen",alwaysNew:true},
 {id:"grn8ws",name:"Green 8ft Windscreen",unit:"ft",category:"Windscreen",alwaysNew:true},
 {id:"blk6ws",name:"Black 6ft Windscreen",unit:"ft",category:"Windscreen",alwaysNew:true},
 {id:"blk8ws",name:"Black 8ft Windscreen",unit:"ft",category:"Windscreen",alwaysNew:true},
-{id:"pedgates",name:"Pedestrian Gates",unit:"gates",category:"Gates"},
-{id:"barricades",name:"Barricades",unit:"pcs",category:"Other"},
+{id:"pedgates",name:"Pedestrian Gates",unit:"gates",category:"Gates",alwaysUsed:true},
+{id:"barricades",name:"Barricades",unit:"pcs",category:"Other",alwaysUsed:true},
 {id:"sandbags",name:"Sandbags",unit:"bags",category:"Other",alwaysNew:true}];
 
 var CATS=["Panels","Hardware","Windscreen","Gates","Other"];
@@ -133,28 +133,92 @@ function CalendarPicker(props){
 // ═══════════════════════════════════════════════
 function MatPick(props){
   var s1=useState(CATS[0]),cat=s1[0],sCat=s1[1];
-  function getCond(item){if(item.alwaysNew||props.forceCond==="new")return"new";return props.conds[item.id]||props.defaultCond||"used"}
-  function upd(id,d){var ni=merge(props.items);ni[id]=Math.max(0,(ni[id]||0)+d);var nc=merge(props.conds);var itm=FENCE_ITEMS.find(function(x){return x.id===id});nc[id]=itm&&itm.alwaysNew?"new":props.forceCond||nc[id]||props.defaultCond||"used";props.onChange(ni,nc)}
-  function setV(id,v){var ni=merge(props.items);ni[id]=Math.max(0,parseInt(v)||0);var nc=merge(props.conds);var itm=FENCE_ITEMS.find(function(x){return x.id===id});nc[id]=itm&&itm.alwaysNew?"new":props.forceCond||nc[id]||props.defaultCond||"used";props.onChange(ni,nc)}
-  function togC(id){if(props.forceCond)return;var itm=FENCE_ITEMS.find(function(x){return x.id===id});if(itm&&itm.alwaysNew)return;var nc=merge(props.conds);nc[id]=nc[id]==="new"?"used":"new";props.onChange(props.items,nc)}
-  function cntA(c){return FENCE_ITEMS.filter(function(i){return i.category===c&&props.items[i.id]>0}).length}
+  // For hasBoth items, we store qty in items[id+"_new"] and items[id+"_used"]
+  // For single-condition items, we store in items[id]
+  function getEffCond(item){
+    if(item.alwaysNew||props.forceCond==="new")return"new";
+    if(item.alwaysUsed)return"used";
+    return null; // hasBoth handled separately
+  }
+  function updSingle(id,d,cond){
+    var ni=merge(props.items);var nc=merge(props.conds);
+    ni[id]=Math.max(0,(ni[id]||0)+d);nc[id]=cond;
+    props.onChange(ni,nc);
+  }
+  function setSingle(id,v,cond){
+    var ni=merge(props.items);var nc=merge(props.conds);
+    ni[id]=Math.max(0,parseInt(v)||0);nc[id]=cond;
+    props.onChange(ni,nc);
+  }
+  function updDual(id,d,which){
+    var key=id+"_"+which;
+    var ni=merge(props.items);var nc=merge(props.conds);
+    ni[key]=Math.max(0,(ni[key]||0)+d);nc[key]=which;
+    props.onChange(ni,nc);
+  }
+  function setDual(id,v,which){
+    var key=id+"_"+which;
+    var ni=merge(props.items);var nc=merge(props.conds);
+    ni[key]=Math.max(0,parseInt(v)||0);nc[key]=which;
+    props.onChange(ni,nc);
+  }
+  function cntA(c){return FENCE_ITEMS.filter(function(i){
+    if(i.category!==c)return false;
+    if(i.hasBoth&&!props.forceCond)return(props.items[i.id+"_new"]>0||props.items[i.id+"_used"]>0);
+    return props.items[i.id]>0;
+  }).length}
+
+  function qtyRow(label,color,qty,onMinus,onPlus,onType,unitTxt){
+    return h("div",{style:{display:"flex",alignItems:"center",gap:8,marginTop:6}},
+      h("span",{style:{fontSize:11,fontWeight:800,color:color,width:48,textAlign:"center",padding:"3px 0",borderRadius:6,background:color+"18",border:"1px solid "+color+"40"}},label),
+      h("span",{style:{color:"#64748b",fontSize:11,flex:1}},unitTxt),
+      h("div",{style:{display:"flex",alignItems:"center",gap:4}},
+        h("button",{onClick:onMinus,style:{width:36,height:36,borderRadius:8,border:"1px solid #1e2836",background:"#1a2130",color:"#94a3b8",fontSize:18,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
+        h("input",{type:"number",inputMode:"numeric",value:qty||"",placeholder:"0",onChange:onType,style:{width:50,height:36,borderRadius:8,border:"1px solid #1e2836",background:"#0c1017",color:"#e2e8f0",fontSize:15,fontWeight:700,textAlign:"center",outline:"none"}}),
+        h("button",{onClick:onPlus,style:{width:36,height:36,borderRadius:8,border:"1px solid "+color+"30",background:color+"15",color:color,fontSize:18,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+")))
+  }
+
   return h("div",null,
     h("div",{style:{display:"flex",gap:6,overflowX:"auto",paddingBottom:10,marginBottom:4}},
       CATS.map(function(c){var n=cntA(c);return h("button",{key:c,onClick:function(){sCat(c)},style:{padding:"8px 14px",borderRadius:10,border:"1px solid",background:cat===c?"#22c55e15":"#141924",borderColor:cat===c?"#22c55e35":"#1e2836",color:cat===c?"#4ade80":"#64748b",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}},c,n>0&&h("span",{style:{background:"#22c55e",color:"#fff",fontSize:11,fontWeight:800,borderRadius:8,padding:"1px 6px"}},n))})),
     h("div",{style:{display:"flex",flexDirection:"column",gap:6}},
       FENCE_ITEMS.filter(function(it){return it.category===cat}).map(function(item){
-        var qty=props.items[item.id]||0,cond=getCond(item),isN=cond==="new",locked=item.alwaysNew||props.forceCond==="new";
+        var eff=getEffCond(item);
+        var isBoth=item.hasBoth&&!props.forceCond;
+
+        // ── hasBoth: show two qty rows ──
+        if(isBoth){
+          var qn=props.items[item.id+"_new"]||0, qu=props.items[item.id+"_used"]||0, tot=qn+qu;
+          return h("div",{key:item.id,style:{padding:"12px 14px",border:"1px solid",borderRadius:12,background:tot>0?"#0f1a24":"#141924",borderColor:tot>0?"#38bdf830":"#1e2836"}},
+            h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              h("div",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600}},item.name),
+              tot>0&&h("span",{style:{color:"#94a3b8",fontSize:11,fontWeight:600}},tot+" total")),
+            qtyRow("\u2605 NEW","#22c55e",qn,
+              function(){updDual(item.id,-1,"new")},
+              function(){updDual(item.id,1,"new")},
+              function(ev){setDual(item.id,ev.target.value,"new")},
+              item.unit),
+            qtyRow("USED","#64748b",qu,
+              function(){updDual(item.id,-1,"used")},
+              function(){updDual(item.id,1,"used")},
+              function(ev){setDual(item.id,ev.target.value,"used")},
+              item.unit))
+        }
+
+        // ── Single condition (alwaysNew, alwaysUsed, or forceCond) ──
+        var cond=props.forceCond||eff||"used";
+        var isN=cond==="new";
+        var qty=props.items[item.id]||0;
         return h("div",{key:item.id,style:{padding:"12px 14px",border:"1px solid",borderRadius:12,background:qty>0?(isN?"#0a1f10":"#0d1520"):"#141924",borderColor:qty>0?(isN?"#22c55e28":"#3b82f628"):"#1e2836"}},
           h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
             h("div",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600,flex:1}},item.name),
-            qty>0&&locked&&h("span",{style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,background:"#22c55e18",color:"#4ade80",border:"1px solid #22c55e40"}},"\u2605 NEW"),
-            qty>0&&props.showCond&&!locked&&h("button",{onClick:function(){togC(item.id)},style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,border:"1px solid",cursor:"pointer",background:isN?"#22c55e18":"#64748b18",color:isN?"#4ade80":"#94a3b8",borderColor:isN?"#22c55e40":"#64748b40"}},isN?"\u2605 NEW":"USED")),
+            qty>0&&h("span",{style:{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:800,background:isN?"#22c55e18":"#64748b18",color:isN?"#4ade80":"#94a3b8",border:"1px solid "+(isN?"#22c55e40":"#64748b40")}},isN?"\u2605 NEW":"USED")),
           h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
             h("span",{style:{color:"#64748b",fontSize:12}},item.unit),
             h("div",{style:{display:"flex",alignItems:"center",gap:4}},
-              h("button",{onClick:function(){upd(item.id,-1)},style:{width:40,height:40,borderRadius:10,border:"1px solid #1e2836",background:"#1a2130",color:"#94a3b8",fontSize:20,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
-              h("input",{type:"number",inputMode:"numeric",value:qty||"",placeholder:"0",onChange:function(ev){setV(item.id,ev.target.value)},style:{width:56,height:40,borderRadius:10,border:"1px solid #1e2836",background:"#0c1017",color:"#e2e8f0",fontSize:17,fontWeight:700,textAlign:"center",outline:"none"}}),
-              h("button",{onClick:function(){upd(item.id,1)},style:{width:40,height:40,borderRadius:10,border:"1px solid #22c55e30",background:"#22c55e15",color:"#22c55e",fontSize:20,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+"))));})));}
+              h("button",{onClick:function(){updSingle(item.id,-1,cond)},style:{width:40,height:40,borderRadius:10,border:"1px solid #1e2836",background:"#1a2130",color:"#94a3b8",fontSize:20,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"\u2212"),
+              h("input",{type:"number",inputMode:"numeric",value:qty||"",placeholder:"0",onChange:function(ev){setSingle(item.id,ev.target.value,cond)},style:{width:56,height:40,borderRadius:10,border:"1px solid #1e2836",background:"#0c1017",color:"#e2e8f0",fontSize:17,fontWeight:700,textAlign:"center",outline:"none"}}),
+              h("button",{onClick:function(){updSingle(item.id,1,cond)},style:{width:40,height:40,borderRadius:10,border:"1px solid #22c55e30",background:"#22c55e15",color:"#22c55e",fontSize:20,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},"+"))));})));}
 
 // ═══════════════════════════════════════════════
 // CONFIG SCREEN
@@ -214,7 +278,7 @@ function App(){
   function canNext(){
     if(step===0)return!!jd.type;
     if(step===1)return!!jd.customer&&!!jd.jobDate;
-    if(step===2){if(jd.type==="swap")return Object.values(jd.swapOut).some(function(v){return v>0});return Object.values(jd.items).some(function(v){return v>0})}
+    if(step===2){if(jd.type==="swap")return Object.values(jd.swapOut).some(function(v){return v>0});return Object.keys(jd.items).length>0&&Object.values(jd.items).some(function(v){return v>0})}
     if(step===3&&jd.type==="swap")return Object.values(jd.swapIn).some(function(v){return v>0});
     if(step===3&&jd.type==="sale"){if(jd.paymentReceived===null)return false;if(jd.paymentReceived&&!jd.paymentType)return false;return true}
     return true}
@@ -222,7 +286,25 @@ function App(){
   function submitJob(){
     setSubmitting(true);
     var ts=new Date().toLocaleString();
-    function bR(m,c,fb){return FENCE_ITEMS.filter(function(i){return m[i.id]>0}).map(function(i){return{item:i.name,quantity:m[i.id],unit:i.unit,condition:c[i.id]||fb||"used"}})}
+    function bR(m,c,fb){
+      var res=[];
+      FENCE_ITEMS.forEach(function(i){
+        if(i.hasBoth&&fb!=="new"){
+          // hasBoth: check for _new and _used keys
+          var qn=m[i.id+"_new"]||0, qu=m[i.id+"_used"]||0;
+          if(qn>0)res.push({item:i.name,quantity:qn,unit:i.unit,condition:"new"});
+          if(qu>0)res.push({item:i.name,quantity:qu,unit:i.unit,condition:"used"});
+        } else {
+          // single condition items
+          var qty=m[i.id]||0;
+          if(qty>0){
+            var cond=i.alwaysNew?"new":i.alwaysUsed?"used":fb||c[i.id]||"used";
+            res.push({item:i.name,quantity:qty,unit:i.unit,condition:cond});
+          }
+        }
+      });
+      return res;
+    }
     var isSw=jd.type==="swap",isSa=jd.type==="sale";
     var iR=!isSw?bR(jd.items,jd.condition,isSa?"new":"used"):[];
     var soR=isSw?bR(jd.swapOut,jd.swapOutCondition,"used"):[];
@@ -278,7 +360,23 @@ function App(){
     // Review step
     if(step===tot-1&&step>1){
       var jt=JT.find(function(j){return j.id===jd.type}),isSw=jd.type==="swap",isSa=jd.type==="sale";
-      function fl(m,c,fb){return FENCE_ITEMS.filter(function(i){return m[i.id]>0}).map(function(i){return{id:i.id,name:i.name,unit:i.unit,qty:m[i.id],cond:(c&&c[i.id])||fb||"used"}})}
+      function fl(m,c,fb){
+        var res=[];
+        FENCE_ITEMS.forEach(function(i){
+          if(i.hasBoth&&fb!=="new"){
+            var qn=m[i.id+"_new"]||0, qu=m[i.id+"_used"]||0;
+            if(qn>0)res.push({id:i.id+"_new",name:i.name,unit:i.unit,qty:qn,cond:"new"});
+            if(qu>0)res.push({id:i.id+"_used",name:i.name,unit:i.unit,qty:qu,cond:"used"});
+          } else {
+            var qty=m[i.id]||0;
+            if(qty>0){
+              var cond=i.alwaysNew?"new":i.alwaysUsed?"used":fb||(c&&c[i.id])||"used";
+              res.push({id:i.id,name:i.name,unit:i.unit,qty:qty,cond:cond});
+            }
+          }
+        });
+        return res;
+      }
       var mI=fl(jd.items,jd.condition,isSa?"new":"used"),oI=fl(jd.swapOut,jd.swapOutCondition,"used"),iI=fl(jd.swapIn,jd.swapInCondition,"used"),eI=fl(jd.extras,jd.extrasCondition,"used");
       var pL=PT.find(function(p){return p.id===jd.paymentType});
       function IL(items,label,clr){clr=clr||"#cbd5e1";return h("div",null,h("div",{style:{color:clr,fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}},label),items.map(function(i){return h("div",{key:i.id,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:14,color:clr}},h("span",null,i.name),h("span",{style:{fontWeight:700,display:"flex",alignItems:"center",gap:8}},h("span",{style:{fontSize:10,fontWeight:800,padding:"2px 6px",borderRadius:4,background:i.cond==="new"?"#22c55e18":"#64748b18",color:i.cond==="new"?"#4ade80":"#94a3b8"}},i.cond==="new"?"NEW":"USED"),i.qty+" "+i.unit))}))}
@@ -315,8 +413,9 @@ function App(){
     !config.googleScriptUrl&&h("div",{style:{padding:"10px 14px",background:"#f59e0b12",border:"1px solid #f59e0b30",borderRadius:10,color:"#fbbf24",fontSize:13,fontWeight:600,marginBottom:14,textAlign:"center"}},"\u26a0\ufe0f Google Sheets not connected. Tap \u2699\ufe0f to set up."),
     h("div",{style:{padding:"14px 16px",background:"#141924",border:"1px solid #1e2836",borderRadius:14,marginTop:4}},
       h("div",{style:{color:"#e2e8f0",fontSize:14,fontWeight:700,marginBottom:10}},"\ud83d\udccc Inventory Rules"),
+      h("div",{style:{color:"#94a3b8",fontSize:13,padding:"3px 0"}},h("span",{style:{color:"#38bdf8"}},"\u2605 NEW + USED"),": Panels, Bases"),
       h("div",{style:{color:"#94a3b8",fontSize:13,padding:"3px 0"}},h("span",{style:{color:"#4ade80"}},"\u2605 NEW only"),": Windscreen, Posts, Clamps, Wheels, Sandbags"),
-      h("div",{style:{color:"#94a3b8",fontSize:13,padding:"3px 0"}},"NEW/USED toggle: Panels, Bases, Gates, Barricades"),
+      h("div",{style:{color:"#94a3b8",fontSize:13,padding:"3px 0"}},h("span",{style:{color:"#94a3b8"}},"USED only"),": Ped Gates, Barricades"),
       h("div",{style:{color:"#64748b",fontSize:12,padding:"3px 0",fontStyle:"italic"}},"Material Sales always use NEW stock")));}
 
   // ── SUCCESS ──
