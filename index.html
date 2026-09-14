@@ -26,6 +26,32 @@ var h=React.createElement, useState=React.useState, useEffect=React.useEffect;
 var APP_PIN="9909";
 
 // ── DATA ──
+// Deployed "Fence Inventory" Apps Script web app. Baked in so a driver never has
+// to paste a URL - the config screen still overrides it if we redeploy.
+var DEFAULT_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzxf-kmxDY9_0TY2xwKBvKl0CKW8wWL-qhl5cw-guP8E1An7KLhe3bM0gcsUaAo3HQD0g/exec";
+
+// Apps Script accepts a text/plain body without a CORS preflight, so a normal
+// request usually succeeds and we can read whether it landed. If the deployment
+// blocks CORS we fall back to a blind no-cors post - the row still writes, we
+// just cannot confirm it. Either way the driver is told the truth.
+function postToScript(url,payload){
+  return fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)})
+    .then(function(res){return res.ok?{ok:true}:{ok:false,reason:"HTTP "+res.status}})
+    .catch(function(){
+      if(!navigator.onLine)return{ok:false,reason:"offline"};
+      return fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)})
+        .then(function(){return{ok:true,blind:true}})
+        .catch(function(){return{ok:false,reason:"no connection"}});
+    });
+}
+
+var SYNC_UI={
+  ok:{icon:"📊",bg:"#22c55e10",fg:"#4ade80"},
+  sent:{icon:"📤",bg:"#22c55e10",fg:"#4ade80"},
+  unconfigured:{icon:"⚠️",bg:"#f59e0b12",fg:"#fbbf24"},
+  failed:{icon:"❌",bg:"#ef444412",fg:"#fca5a5"}
+};
+
 var FENCE_ITEMS=[
 {id:"6x10_panel",name:"6\u00d710 Fence Panel",unit:"panels",category:"Panels",hasBoth:true},
 {id:"8x10_panel",name:"8\u00d710 Fence Panel",unit:"panels",category:"Panels",hasBoth:true},
@@ -259,10 +285,11 @@ function App(){
   var s2=useState("home"),screen=s2[0],setScreen=s2[1];
   var s3=useState(0),step=s3[0],setStep=s3[1];
   var s4=useState(blankJob("")),jd=s4[0],setJD=s4[1];
-  var s5=useState({googleScriptUrl:"",salesEmail:"kevin@thegreendumpster.com",driverName:""}),config=s5[0],setConfig=s5[1];
+  var s5=useState({googleScriptUrl:DEFAULT_SCRIPT_URL,salesEmail:"kevin@thegreendumpster.com",driverName:""}),config=s5[0],setConfig=s5[1];
   var s6=useState(false),submitting=s6[0],setSubmitting=s6[1];
   var s7=useState([]),history=s7[0],setHistory=s7[1];
   var s8=useState(false),cfgSaved=s8[0],setCfgSaved=s8[1];
+  var s9=useState(null),syncStatus=s9[0],setSyncStatus=s9[1];
 
   useEffect(function(){var c=lsGet("tgd_fence_cfg");if(c)setConfig(c);var hh=lsGet("tgd_fence_hist");if(hh)setHistory(hh)},[]);
 
@@ -286,6 +313,7 @@ function App(){
 
   function submitJob(){
     setSubmitting(true);
+    setSyncStatus(null);
     var ts=new Date().toLocaleString();
     function bR(m,c,fb){
       var res=[];
@@ -311,16 +339,34 @@ function App(){
     var soR=isSw?bR(jd.swapOut,jd.swapOutCondition,"used"):[];
     var siR=isSw?bR(jd.swapIn,jd.swapInCondition,"used"):[];
     var eR=bR(jd.extras,jd.extrasCondition,"used");
-    if(config.googleScriptUrl){
-      var base={timestamp:ts,jobDate:jd.jobDate,driver:jd.driverName||config.driverName,customer:jd.customer,jobSite:jd.jobSite,poNumber:jd.poNumber};
-      function post(body){try{fetch(config.googleScriptUrl,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})}catch(x){}}
-      post(merge({action:"inventory"},base,{jobType:jd.type,items:iR,swapOut:soR,swapIn:siR,extras:eR,extraNotes:jd.extraNotes,notes:jd.notes,paymentReceived:isSa?jd.paymentReceived:null,paymentType:isSa?jd.paymentType:"",paymentNotes:isSa?jd.paymentNotes:""}));
-      if(eR.length>0)post(merge({action:"email_extras",salesEmail:config.salesEmail},base,{extras:eR,extraNotes:jd.extraNotes}));
-      if(isSa)post(merge({action:"email_sale",salesEmail:config.salesEmail},base,{items:iR,paymentReceived:jd.paymentReceived,paymentType:jd.paymentType,paymentNotes:jd.paymentNotes}));
+    var base={timestamp:ts,jobDate:jd.jobDate,driver:jd.driverName||config.driverName,customer:jd.customer,jobSite:jd.jobSite,poNumber:jd.poNumber};
+    var payloads=[merge({action:"inventory"},base,{jobType:jd.type,items:iR,swapOut:soR,swapIn:siR,extras:eR,extraNotes:jd.extraNotes,notes:jd.notes,paymentReceived:isSa?jd.paymentReceived:null,paymentType:isSa?jd.paymentType:"",paymentNotes:isSa?jd.paymentNotes:""})];
+    if(eR.length>0)payloads.push(merge({action:"email_extras",salesEmail:config.salesEmail},base,{extras:eR,extraNotes:jd.extraNotes}));
+    if(isSa)payloads.push(merge({action:"email_sale",salesEmail:config.salesEmail},base,{items:iR,paymentReceived:jd.paymentReceived,paymentType:jd.paymentType,paymentNotes:jd.paymentNotes}));
+
+    function finish(status){
+      setSyncStatus(status);
+      var entry=merge(jd,{timestamp:ts,id:Date.now(),sync:status.state});
+      var nh=[entry].concat(history).slice(0,50);setHistory(nh);lsSet("tgd_fence_hist",nh);
+      setSubmitting(false);setScreen("success");
     }
-    var entry=merge(jd,{timestamp:ts,id:Date.now()});
-    var nh=[entry].concat(history).slice(0,50);setHistory(nh);lsSet("tgd_fence_hist",nh);
-    setSubmitting(false);setScreen("success")}
+
+    if(!config.googleScriptUrl){
+      finish({state:"unconfigured",msg:"Saved on this phone only - no Google Sheet connected."});
+      return;
+    }
+
+    Promise.all(payloads.map(function(b){return postToScript(config.googleScriptUrl,b)})).then(function(results){
+      var failed=results.filter(function(r){return !r.ok});
+      if(failed.length===0){
+        finish(results.some(function(r){return r.blind})
+          ?{state:"sent",msg:"Sent to the inventory sheet."}
+          :{state:"ok",msg:"Logged to the inventory sheet."});
+      } else {
+        finish({state:"failed",msg:"Could not reach the sheet ("+failed[0].reason+"). Saved on this phone - resubmit when you have signal."});
+      }
+    });
+  }
 
   // ── PIN GATE ──
   if(!unlocked)return h(PinScreen,{onUnlock:function(){setUnlocked(true)}});
@@ -426,7 +472,7 @@ function App(){
       h("p",{style:{color:"#94a3b8",fontSize:14,margin:"0 0 4px"}},jt?jt.label:""),h("p",{style:{color:"#cbd5e1",fontSize:17,fontWeight:700,margin:"0 0 4px"}},jd.customer),
       h("p",{style:{color:"#64748b",fontSize:13,margin:"0 0 24px"}},"\ud83d\udcc5 "+fmtDisp(jd.jobDate)),
       h("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:28,width:"100%"}},
-        h("div",{style:{padding:"10px 16px",background:"#22c55e10",borderRadius:10,color:"#22c55e",fontSize:14,fontWeight:600}},"\ud83d\udcca Inventory updated"),
+        h("div",{style:{padding:"10px 16px",borderRadius:10,fontSize:14,fontWeight:600,textAlign:"left",background:(SYNC_UI[syncStatus&&syncStatus.state]||SYNC_UI.ok).bg,color:(SYNC_UI[syncStatus&&syncStatus.state]||SYNC_UI.ok).fg}},(SYNC_UI[syncStatus&&syncStatus.state]||SYNC_UI.ok).icon+" "+((syncStatus&&syncStatus.msg)||"Logged to the inventory sheet.")),
         hasE&&h("div",{style:{padding:"10px 16px",background:"#f59e0b10",borderRadius:10,color:"#fbbf24",fontSize:14,fontWeight:600}},"\ud83d\udce7 Sales rep notified"),
         isSa&&h("div",{style:{padding:"10px 16px",borderRadius:10,fontSize:14,fontWeight:600,background:jd.paymentReceived?"#22c55e10":"#ef444410",color:jd.paymentReceived?"#4ade80":"#fca5a5"}},jd.paymentReceived?"\ud83d\udcb0 Paid":"\ud83d\udcb0 Unpaid")),
       h("button",{onClick:resetJob,style:{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"18px 20px",background:"linear-gradient(135deg,#14532d,#166534)",border:"1px solid #22c55e25",borderRadius:16,color:"#fff",cursor:"pointer",boxSizing:"border-box"}},h("span",{style:{fontSize:28}},"\u2795"),h("span",{style:{flex:1,textAlign:"left"}},h("strong",{style:{fontSize:16}},"Start Another Job")),h("span",{style:{fontSize:20,opacity:0.5}},"\u2192")));}
