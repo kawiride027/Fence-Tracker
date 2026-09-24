@@ -3,7 +3,7 @@
 Mobile web app for The Green Dumpster fence drivers to record material movements
 (deliveries, pickups, swaps, sales, yard audits) from their phones. Logs to a
 Google Sheet via Apps Script and emails the sales rep when there are extras to
-invoice or a material sale.
+invoice, a material sale, or damaged material pulled from the yard.
 
 **Live:** https://kawiride027.github.io/Fence-Tracker/ — PIN **9909**
 
@@ -20,11 +20,12 @@ React 18 with a console warning. Left alone deliberately — not worth the churn
 ## Backend
 
 Google Sheet **"Fence Inventory"** (`1a-R3sQ_M2Z6q3v198xVPHZen4uMTWPomteb7HCutYwU`)
-with a container-bound Apps Script ("Backend v6", 356 lines), deployed as a web
-app: **Version 3** (Feb 18 2026), execute as dustin@thegreendumpster.com, access
-Anyone. That `/exec` URL is baked into `index.html` as `DEFAULT_SCRIPT_URL`.
+with a container-bound Apps Script (**"Backend v7"**), deployed as a web app,
+execute as dustin@thegreendumpster.com, access Anyone. That `/exec` URL is baked
+into `index.html` as `DEFAULT_SCRIPT_URL`. A GET to the URL returns the running
+version string (`Fence Inventory API v7`) — handy for confirming a redeploy landed.
 
-Four tabs, created on demand by the script:
+Five tabs, created on demand by the script:
 
 | tab | contents |
 |---|---|
@@ -32,9 +33,11 @@ Four tabs, created on demand by the script:
 | `Inventory Log` | one row per job line item |
 | `Extras Log` | extras needing invoicing |
 | `Sales Log` | material sales |
+| `Damage Log` | damaged material pulled from the yard (who / what / when / why) |
 
-Three POST actions, all to the same URL: `inventory` (every submit),
-`email_extras` (extras present), `email_sale` (job type = sale).
+Four POST actions, all to the same URL: `inventory` (every submit),
+`email_extras` (extras present), `email_sale` (job type = sale),
+`email_damaged` (damaged material present).
 
 Payload contract, verified against the script on 2026-09-14: `jobDate`, `jobType`,
 `driver`, `customer`, `jobSite`, `poNumber`, `items`, `swapOut`, `swapIn`,
@@ -71,6 +74,16 @@ so a job that never reached the sheet still showed the green success screen.
 
 ## Recent Changes
 
+- **2026-09-24** — Shipped **damage reporting**. On pickups and swaps, a "Damaged?"
+  step (Yes/No, modeled on Extras) follows the materials count. Marking material
+  damaged sends a separate `jobType:"damaged"` inventory movement that **subtracts**
+  it from the yard (net-it-out: the pickup adds it back, this removes it), logs it to
+  a new **Damage Log** tab, and emails the sales rep via a new `email_damaged` action.
+  Frontend fields: `damaged`, `damagedCondition`, `damageNotes`. Backend went **v6 → v7**;
+  `handleInventory` now takes a `LockService` script lock so the pickup + damaged
+  requests (which fire together) can't race on the yard math. New job-data direction in
+  `updateYardInventory`: `"damaged"` subtracts from in-yard New/Used, leaves Out on Rent
+  alone.
 - **2026-09-14** — Baked the deployed `/exec` URL in as `DEFAULT_SCRIPT_URL`
   (it was `""`, so every driver had to paste it by hand or nothing logged), and
   replaced the silent fire-and-forget submit with an awaited one that reports the
