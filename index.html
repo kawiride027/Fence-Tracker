@@ -95,7 +95,7 @@ function fmtDisp(s){if(!s)return"";var d=new Date(s+"T00:00:00");return d.toLoca
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k))}catch(x){return null}}
 function lsSet(k,v){localStorage.setItem(k,JSON.stringify(v))}
 function merge(){var r={};for(var i=0;i<arguments.length;i++){var o=arguments[i];if(o){for(var k in o)r[k]=o[k]}}return r}
-function blankJob(dn){return{type:"",customer:"",jobSite:"",poNumber:"",jobDate:fmtISO(new Date()),items:{},condition:{},swapOut:{},swapOutCondition:{},swapIn:{},swapInCondition:{},extras:{},extrasCondition:{},extraNotes:"",driverName:dn||"",notes:"",paymentReceived:null,paymentType:"",paymentNotes:""}}
+function blankJob(dn){return{type:"",customer:"",jobSite:"",poNumber:"",jobDate:fmtISO(new Date()),items:{},condition:{},swapOut:{},swapOutCondition:{},swapIn:{},swapInCondition:{},extras:{},extrasCondition:{},extraNotes:"",damaged:{},damagedCondition:{},damageNotes:"",driverName:dn||"",notes:"",paymentReceived:null,paymentType:"",paymentNotes:""}}
 
 // ═══════════════════════════════════════════════
 // PIN SCREEN
@@ -278,6 +278,24 @@ function ExtrasScreen(props){
     ):h("div",{style:{textAlign:"center",padding:"36px 20px"}},h("span",{style:{fontSize:40}},"\ud83d\udc4d"),h("p",{style:{color:"#64748b",margin:"8px 0 0"}},"No extras \u2014 all good!")));}
 
 // ═══════════════════════════════════════════════
+// DAMAGED SCREEN
+// ═══════════════════════════════════════════════
+function DamagedScreen(props){
+  var jd=props.jobData, sJD=props.sJD;
+  var s1=useState(Object.values(jd.damaged).some(function(v){return v>0})),has=s1[0],setHas=s1[1];
+  return h("div",null,
+    h("div",{style:{padding:"10px 14px",background:"#0d1520",border:"1px solid #1e2836",borderRadius:10,color:"#94a3b8",fontSize:13,marginBottom:14,textAlign:"center"}},"Any material coming back broken or unusable?"),
+    h("div",{style:{display:"flex",gap:8,marginBottom:14}},
+      h("button",{onClick:function(){setHas(false);sJD({damaged:{},damagedCondition:{},damageNotes:""})},style:{flex:1,padding:14,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",background:!has?"#22c55e":"#1e2836",color:!has?"#fff":"#94a3b8"}},"👍 None Damaged"),
+      h("button",{onClick:function(){setHas(true)},style:{flex:1,padding:14,border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",background:has?"#ef4444":"#1e2836",color:has?"#fff":"#94a3b8"}},"🛠️ Yes, Damaged")),
+    has?h("div",null,
+      h("div",{style:{padding:"10px 14px",background:"#ef444412",border:"1px solid #ef444430",borderRadius:10,color:"#fca5a5",fontSize:13,fontWeight:600,marginBottom:14,textAlign:"center"}},"➖ Removed from yard · ⚡ Kevin will be emailed"),
+      h(MatPick,{items:jd.damaged,conds:jd.damagedCondition,onChange:function(it,co){sJD({damaged:it,damagedCondition:co})},showCond:true,defaultCond:"used"}),
+      h("label",{style:merge(lbl,{marginTop:14})},"What happened?"),
+      h("textarea",{style:ta,value:jd.damageNotes,rows:3,onChange:function(ev){sJD({damageNotes:ev.target.value})},placeholder:"e.g. 2 panels bent in transit"})
+    ):h("div",{style:{textAlign:"center",padding:"36px 20px"}},h("span",{style:{fontSize:40}},"👍"),h("p",{style:{color:"#64748b",margin:"8px 0 0"}},"No damage — all good!")));}
+
+// ═══════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════
 function App(){
@@ -298,8 +316,9 @@ function App(){
   function sJD(partial){setJD(function(prev){return merge(prev,partial)})}
 
   var steps;
-  if(jd.type==="swap")steps=["Job Type","Customer Info","Picking Up","Dropping Off","Extras?","Review"];
+  if(jd.type==="swap")steps=["Job Type","Customer Info","Picking Up","Dropping Off","Damaged?","Extras?","Review"];
   else if(jd.type==="sale")steps=["Job Type","Customer Info","Materials Sold","Payment","Review"];
+  else if(jd.type==="pickup")steps=["Job Type","Customer Info","Materials","Damaged?","Extras?","Review"];
   else steps=["Job Type","Customer Info","Materials","Extras?","Review"];
   var tot=steps.length;
 
@@ -339,10 +358,16 @@ function App(){
     var soR=isSw?bR(jd.swapOut,jd.swapOutCondition,"used"):[];
     var siR=isSw?bR(jd.swapIn,jd.swapInCondition,"used"):[];
     var eR=bR(jd.extras,jd.extrasCondition,"used");
+    var dR=bR(jd.damaged,jd.damagedCondition,"used");
     var base={timestamp:ts,jobDate:jd.jobDate,driver:jd.driverName||config.driverName,customer:jd.customer,jobSite:jd.jobSite,poNumber:jd.poNumber};
     var payloads=[merge({action:"inventory"},base,{jobType:jd.type,items:iR,swapOut:soR,swapIn:siR,extras:eR,extraNotes:jd.extraNotes,notes:jd.notes,paymentReceived:isSa?jd.paymentReceived:null,paymentType:isSa?jd.paymentType:"",paymentNotes:isSa?jd.paymentNotes:""})];
     if(eR.length>0)payloads.push(merge({action:"email_extras",salesEmail:config.salesEmail},base,{extras:eR,extraNotes:jd.extraNotes}));
     if(isSa)payloads.push(merge({action:"email_sale",salesEmail:config.salesEmail},base,{items:iR,paymentReceived:jd.paymentReceived,paymentType:jd.paymentType,paymentNotes:jd.paymentNotes}));
+    // Damaged material: a separate movement that REMOVES it from the yard, plus an email to Kevin.
+    if(dR.length>0){
+      payloads.push(merge({action:"inventory"},base,{jobType:"damaged",items:dR,notes:jd.damageNotes||("Damaged during "+jd.type)}));
+      payloads.push(merge({action:"email_damaged",salesEmail:config.salesEmail},base,{items:dR,damageNotes:jd.damageNotes}));
+    }
 
     function finish(status){
       setSyncStatus(status);
@@ -401,8 +426,11 @@ function App(){
         r===false&&h("div",{style:{padding:16,background:"#ef444412",border:"1px solid #ef444430",borderRadius:12}},h("div",{style:{color:"#fca5a5",fontSize:14,fontWeight:600,marginBottom:6}},"\u26a0\ufe0f Payment Not Collected"),h("label",{style:merge(lbl,{marginTop:8})},"Reason"),h("textarea",{style:ta,value:jd.paymentNotes,rows:2,onChange:function(ev){sJD({paymentNotes:ev.target.value})},placeholder:"e.g. Customer will call office"})),
         r===null&&h("div",{style:{textAlign:"center",padding:20,color:"#475569",fontSize:14}},"Select whether payment was collected"));}
 
+    // Damaged step (pickup & swap only) — right after materials are counted
+    if((jd.type==="pickup"&&step===3)||(jd.type==="swap"&&step===4))return h(DamagedScreen,{jobData:jd,sJD:sJD});
+
     // Extras step
-    if((jd.type==="swap"&&step===4)||(!["swap","sale"].includes(jd.type)&&step===3))return h(ExtrasScreen,{jobData:jd,sJD:sJD});
+    if((jd.type==="swap"&&step===5)||(jd.type==="pickup"&&step===4)||(!["swap","sale","pickup"].includes(jd.type)&&step===3))return h(ExtrasScreen,{jobData:jd,sJD:sJD});
 
     // Review step
     if(step===tot-1&&step>1){
@@ -424,7 +452,7 @@ function App(){
         });
         return res;
       }
-      var mI=fl(jd.items,jd.condition,isSa?"new":"used"),oI=fl(jd.swapOut,jd.swapOutCondition,"used"),iI=fl(jd.swapIn,jd.swapInCondition,"used"),eI=fl(jd.extras,jd.extrasCondition,"used");
+      var mI=fl(jd.items,jd.condition,isSa?"new":"used"),oI=fl(jd.swapOut,jd.swapOutCondition,"used"),iI=fl(jd.swapIn,jd.swapInCondition,"used"),eI=fl(jd.extras,jd.extrasCondition,"used"),dI=fl(jd.damaged,jd.damagedCondition,"used");
       var pL=PT.find(function(p){return p.id===jd.paymentType});
       function IL(items,label,clr){clr=clr||"#cbd5e1";return h("div",null,h("div",{style:{color:clr,fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}},label),items.map(function(i){return h("div",{key:i.id,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:14,color:clr}},h("span",null,i.name),h("span",{style:{fontWeight:700,display:"flex",alignItems:"center",gap:8}},h("span",{style:{fontSize:10,fontWeight:800,padding:"2px 6px",borderRadius:4,background:i.cond==="new"?"#22c55e18":"#64748b18",color:i.cond==="new"?"#4ade80":"#94a3b8"}},i.cond==="new"?"NEW":"USED"),i.qty+" "+i.unit))}))}
       var div={borderTop:"1px solid #1e2836",margin:"12px 0"};
@@ -438,7 +466,8 @@ function App(){
         isSa&&IL(mI,"\ud83d\udcb0 Materials Sold","#fbbf24"),
         !isSw&&!isSa&&IL(mI,jd.type==="pickup"?"\ud83d\udce6 Picked Up":"\ud83d\udce6 Materials"),
         isSa&&h("div",null,h("div",{style:div}),h("div",{style:{padding:"12px 16px",borderRadius:10,background:jd.paymentReceived?"#22c55e10":"#ef444410",border:"1px solid "+(jd.paymentReceived?"#22c55e30":"#ef444430")}},h("span",{style:{color:"#e2e8f0",fontSize:14,fontWeight:600}},jd.paymentReceived?"\u2705 Paid":"\u274c NOT Paid"),jd.paymentReceived&&pL&&h("span",{style:{marginLeft:8,padding:"4px 10px",borderRadius:8,background:"#f59e0b20",color:"#fbbf24",fontSize:12,fontWeight:700}},pL.label))),
-        eI.length>0&&h("div",null,h("div",{style:{borderTop:"1px solid #f59e0b30",margin:"12px 0"}}),IL(eI,"\u26a0\ufe0f Extras","#fbbf24"),h("div",{style:{padding:"8px 12px",background:"#3b82f610",borderRadius:8,color:"#60a5fa",fontSize:13,marginTop:8,textAlign:"center"}},"\ud83d\udce7 Email \u2192 "+(config.salesEmail||"sales rep")))),
+        eI.length>0&&h("div",null,h("div",{style:{borderTop:"1px solid #f59e0b30",margin:"12px 0"}}),IL(eI,"\u26a0\ufe0f Extras","#fbbf24"),h("div",{style:{padding:"8px 12px",background:"#3b82f610",borderRadius:8,color:"#60a5fa",fontSize:13,marginTop:8,textAlign:"center"}},"\ud83d\udce7 Email \u2192 "+(config.salesEmail||"sales rep"))),
+        dI.length>0&&h("div",null,h("div",{style:{borderTop:"1px solid #ef444430",margin:"12px 0"}}),IL(dI,"\ud83d\udee0\ufe0f Damaged / Removed","#fca5a5"),jd.damageNotes&&h("div",{style:{color:"#94a3b8",fontSize:13,marginTop:6,fontStyle:"italic"}},"\u201c"+jd.damageNotes+"\u201d"),h("div",{style:{padding:"8px 12px",background:"#ef444410",borderRadius:8,color:"#fca5a5",fontSize:13,marginTop:8,textAlign:"center"}},"\u2796 Removed from yard \u00b7 \ud83d\udce7 "+(config.salesEmail||"Kevin")))),
       h("label",{style:lbl},"Driver Notes"),h("textarea",{style:ta,value:jd.notes,rows:2,onChange:function(ev){sJD({notes:ev.target.value})},placeholder:"Additional notes..."}));}
     return null;}
 
@@ -466,7 +495,7 @@ function App(){
       h("div",{style:{color:"#64748b",fontSize:12,padding:"3px 0",fontStyle:"italic"}},"Material Sales always use NEW stock")));}
 
   // ── SUCCESS ──
-  function renderSuccess(){var jt=JT.find(function(j){return j.id===jd.type}),isSa=jd.type==="sale",hasE=Object.values(jd.extras).some(function(v){return v>0});
+  function renderSuccess(){var jt=JT.find(function(j){return j.id===jd.type}),isSa=jd.type==="sale",hasE=Object.values(jd.extras).some(function(v){return v>0}),hasD=Object.values(jd.damaged).some(function(v){return v>0});
     return h("div",{style:{padding:"40px 20px",textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center"}},
       h("div",{style:{fontSize:60,marginBottom:8}},"\u2705"),h("h2",{style:{color:"#22c55e",fontSize:24,fontWeight:800,margin:"0 0 6px"}},"Submitted!"),
       h("p",{style:{color:"#94a3b8",fontSize:14,margin:"0 0 4px"}},jt?jt.label:""),h("p",{style:{color:"#cbd5e1",fontSize:17,fontWeight:700,margin:"0 0 4px"}},jd.customer),
@@ -474,6 +503,7 @@ function App(){
       h("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:28,width:"100%"}},
         h("div",{style:{padding:"10px 16px",borderRadius:10,fontSize:14,fontWeight:600,textAlign:"left",background:(SYNC_UI[syncStatus&&syncStatus.state]||SYNC_UI.ok).bg,color:(SYNC_UI[syncStatus&&syncStatus.state]||SYNC_UI.ok).fg}},(SYNC_UI[syncStatus&&syncStatus.state]||SYNC_UI.ok).icon+" "+((syncStatus&&syncStatus.msg)||"Logged to the inventory sheet.")),
         hasE&&h("div",{style:{padding:"10px 16px",background:"#f59e0b10",borderRadius:10,color:"#fbbf24",fontSize:14,fontWeight:600}},"\ud83d\udce7 Sales rep notified"),
+        hasD&&h("div",{style:{padding:"10px 16px",background:"#ef444410",borderRadius:10,color:"#fca5a5",fontSize:14,fontWeight:600}},"\ud83d\udee0\ufe0f Damage reported \u00b7 Kevin notified"),
         isSa&&h("div",{style:{padding:"10px 16px",borderRadius:10,fontSize:14,fontWeight:600,background:jd.paymentReceived?"#22c55e10":"#ef444410",color:jd.paymentReceived?"#4ade80":"#fca5a5"}},jd.paymentReceived?"\ud83d\udcb0 Paid":"\ud83d\udcb0 Unpaid")),
       h("button",{onClick:resetJob,style:{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"18px 20px",background:"linear-gradient(135deg,#14532d,#166534)",border:"1px solid #22c55e25",borderRadius:16,color:"#fff",cursor:"pointer",boxSizing:"border-box"}},h("span",{style:{fontSize:28}},"\u2795"),h("span",{style:{flex:1,textAlign:"left"}},h("strong",{style:{fontSize:16}},"Start Another Job")),h("span",{style:{fontSize:20,opacity:0.5}},"\u2192")));}
 
